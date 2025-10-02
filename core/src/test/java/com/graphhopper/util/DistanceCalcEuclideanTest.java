@@ -18,6 +18,7 @@
 
 package com.graphhopper.util;
 
+import com.github.javafaker.Faker;
 import com.graphhopper.util.shapes.GHPoint;
 import org.junit.jupiter.api.Test;
 
@@ -68,4 +69,52 @@ public class DistanceCalcEuclideanTest {
                 0, 0, 10
         ), 1e-6);
     }
+
+
+    // Voici les tests qu'on a ajouté
+    @Test
+    public void testCalcDenormalizedDist() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals(5.0, calc.calcDenormalizedDist(25.0), 1e-6);
+    }
+
+    @Test
+    public void testCalcNormalizedDistSingleValue() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals(25.0, calc.calcNormalizedDist(5.0), 1e-6);
+    }
+
+    @Test
+    public void testIntermediatePointHalfway() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        GHPoint mid = calc.intermediatePoint(0.5, 0, 0, 10, 10);
+        assertEquals(5.0, mid.getLat(), 1e-6);
+        assertEquals(5.0, mid.getLon(), 1e-6);
+    }
+
+    @Test
+    public void testToStringReturns2D() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals("2D", calc.toString());
+    }
+
+    @Test
+    public void testCalcNormalizedDistZeroDistance() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals(0.0, calc.calcNormalizedDist(0, 0, 0, 0), 1e-6);
+    }
+
+    @Test
+    public void testCalcShrinkFactorAlwaysOne() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals(1.0, calc.calcShrinkFactor(45.0, 60.0), 1e-6);
+    }
+
+    @Test
+    public void testValidEdgeDistanceTrueCase() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        boolean result = calc.validEdgeDistance(5, 5, 0, 0, 10, 10);
+        assertEquals(true, result);
+    }
 }
+
