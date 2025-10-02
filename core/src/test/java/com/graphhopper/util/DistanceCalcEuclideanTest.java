@@ -116,7 +116,5 @@ public class DistanceCalcEuclideanTest {
         boolean result = calc.validEdgeDistance(5, 5, 0, 0, 10, 10);
         assertEquals(true, result);
     }
-
-
 }
 
