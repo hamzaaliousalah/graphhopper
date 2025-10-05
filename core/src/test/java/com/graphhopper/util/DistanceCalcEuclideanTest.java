@@ -116,6 +116,26 @@ public class DistanceCalcEuclideanTest {
         boolean result = calc.validEdgeDistance(5, 5, 0, 0, 10, 10);
         assertEquals(true, result);
     }
-    
+
+    // Ce test utilise java faker pour générer des coordonnées aléatoires
+    // et vérifier que la méthode calcDist3D retourne une distance valide.
+
+    @Test
+    public void testCalcDist3DWithFaker() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        Faker faker = new Faker();
+
+        double lat1 = faker.number().randomDouble(6, -90, 90);
+        double lon1 = faker.number().randomDouble(6, -180, 180);
+        double ele1 = faker.number().randomDouble(6, 0, 1000);
+
+        double lat2 = faker.number().randomDouble(6, -90, 90);
+        double lon2 = faker.number().randomDouble(6, -180, 180);
+        double ele2 = faker.number().randomDouble(6, 0, 1000);
+
+        double dist = calc.calcDist3D(lat1, lon1, ele1, lat2, lon2, ele2);
+
+        assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
+    }
 }
 
