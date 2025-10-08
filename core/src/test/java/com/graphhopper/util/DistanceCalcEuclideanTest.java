@@ -70,8 +70,7 @@ public class DistanceCalcEuclideanTest {
         ), 1e-6);
     }
 
-
-    // Voici les tests qu'on a ajouté
+    // Voici les 7  cas de tests qu'on a ajouté
     @Test
     public void testCalcDenormalizedDist() {
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
@@ -93,32 +92,38 @@ public class DistanceCalcEuclideanTest {
     }
 
     @Test
-    public void testToStringReturns2D() {
+    public void testToString() {
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
         assertEquals("2D", calc.toString());
     }
 
     @Test
-    public void testCalcNormalizedDistZeroDistance() {
+    public void testCalcNormalizedDistWithSubstractionDetection(){
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
-        assertEquals(0.0, calc.calcNormalizedDist(0, 0, 0, 0), 1e-6);
+        double result = calc.calcNormalizedDist(10.0, 2.0, 8.0, 1.0);
+        assertEquals(5.0, result, 1e-6);
     }
 
     @Test
-    public void testCalcShrinkFactorAlwaysOne() {
+    public void testIntermediatePointWithNegativeCoordinates(){
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
-        assertEquals(1.0, calc.calcShrinkFactor(45.0, 60.0), 1e-6);
+        GHPoint mid = calc.intermediatePoint(0.5, -5, -10, 5, 10);
+        assertEquals(0.0, mid.getLat(), 1e-6);
+        assertEquals(0.0, mid.getLon(), 1e-6);
     }
 
     @Test
-    public void testValidEdgeDistanceTrueCase() {
+    public void testEdgeDistanceCalculation() {
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
-        boolean result = calc.validEdgeDistance(5, 5, 0, 0, 10, 10);
-        assertEquals(true, result);
+        double dist = calc.calcNormalizedDist(10.0, 5.0, 2.0, 1.0);
+        assertEquals(80.0, dist, 1e-6);
+
+        double dist2 = calc.calcNormalizedDist(8.0, 3.0, 5.0, 1.0);
+        assertEquals(13.0, dist2, 1e-6);
     }
 
     // Ce test utilise java faker pour générer des coordonnées aléatoires
-    // et vérifier que la méthode calcDist3D retourne une distance valide.
+    // et vérifie que la méthode calcDist3D retourne une distance valide.
 
     @Test
     public void testCalcDist3DWithFaker() {
@@ -138,4 +143,3 @@ public class DistanceCalcEuclideanTest {
         assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
     }
 }
-
