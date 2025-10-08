@@ -98,14 +98,14 @@ public class DistanceCalcEuclideanTest {
     }
 
     @Test
-    public void testCalcNormalizedDistWithSubstractionDetection(){
+    public void testCalcNormalizedDistWithSubstractionDetection() {
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
         double result = calc.calcNormalizedDist(10.0, 2.0, 8.0, 1.0);
         assertEquals(5.0, result, 1e-6);
     }
 
     @Test
-    public void testIntermediatePointWithNegativeCoordinates(){
+    public void testIntermediatePointWithNegativeCoordinates() {
         DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
         GHPoint mid = calc.intermediatePoint(0.5, -5, -10, 5, 10);
         assertEquals(0.0, mid.getLat(), 1e-6);
