@@ -120,6 +120,7 @@ public class DistanceCalcEuclideanTest {
 
         double dist2 = calc.calcNormalizedDist(8.0, 3.0, 5.0, 1.0);
         assertEquals(13.0, dist2, 1e-6);
+
     }
 
     // Ce test utilise java faker pour générer des coordonnées aléatoires
