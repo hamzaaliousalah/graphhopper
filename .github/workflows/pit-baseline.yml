@@ -1,0 +1,47 @@
+name: PIT Baseline (seed)
+on:
+  workflow_dispatch:
+
+jobs:
+  pit-baseline:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build (no tests)
+        run: mvn -B -q -DskipTests clean install
+
+      - name: Run PIT (core module)
+        run: |
+          mvn -B -pl core -am \
+            -DwithHistory \
+            -DreportsDirectory=core/target/pit-reports \
+            org.pitest:pitest-maven:mutationCoverage
+      - name: Collect PIT outputs
+        run: |
+          mkdir -p pit-out
+          # récupère le premier répertoire de rapport PIT
+          REPORT_DIR=$(ls -d core/target/pit-reports/* | head -n1)
+          cp "$REPORT_DIR/mutations.csv" pit-out/mutations.csv
+          # calcule un score simple (tu pourras changer la formule ensuite)
+          TOTAL=$(tail -n +2 pit-out/mutations.csv | wc -l | tr -d ' ')
+          KILLED=$(grep -c ',KILLED,' pit-out/mutations.csv || true)
+          echo "TOTAL=$TOTAL"   > pit-out/pit-score.txt
+          echo "KILLED=$KILLED" >> pit-out/pit-score.txt
+          if [ "$TOTAL" -gt 0 ]; then
+            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n", (k/t)*100)}' >> pit-out/pit-score.txt
+          else
+            echo "LINE_COVERAGE=0.00" >> pit-out/pit-score.txt
+          fi
+      - name: Upload baseline artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-baseline
+          path: pit-out/*
