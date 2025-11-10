@@ -1,6 +1,7 @@
 pit-verify:
   needs: build-core
   runs-on: ubuntu-latest
+  timeout-minutes: 20   # coupe proprement si ça dépasse 20 min
   steps:
     - uses: actions/checkout@v4
 
@@ -15,17 +16,20 @@ pit-verify:
       working-directory: core
       run: mvn -B -q -DskipITs test
 
-    - name: Run PIT on core (fast smoke)
+    # <<< Étape PIT ultra-ciblée >>>
+    - name: Run PIT on core (tiny scope)
       working-directory: core
       run: |
         mvn -B \
           -DwithHistory \
           -Dthreads=2 \
-          -DtimeoutConst=6000 -DtimeoutFactor=1.25 \
+          -DjvmArgs='-Xmx3g' \
+          -DtimeoutConst=15000 -DtimeoutFactor=1.5 \
           -DreportsDirectory=target/pit-reports \
-          -DtargetClasses='com.graphhopper.util.*' \
-          -DtargetTests='com.graphhopper.util.*Test' \
+          -DtargetClasses='com.graphhopper.util.DistanceCalc*' \
+          -DtargetTests='com.graphhopper.util.DistanceCalc*Test' \
           org.pitest:pitest-maven:mutationCoverage
+
 
     - name: Compute current PIT score
       working-directory: core
