@@ -38,8 +38,10 @@ jobs:
           distribution: temurin
           cache: maven
 
+      # Variante A : Run PIT sur le module 'core' uniquement
       - name: Run PIT on core
         run: |
+          mvn -B -pl core -am -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
           mvn -B -pl core -am \
             -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
