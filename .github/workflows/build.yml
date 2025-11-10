@@ -17,13 +17,11 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Build uniquement 'core' (on saute web-bundle et autres)
+      # Build uniquement le module core (on évite web/web-bundle/etc.)
       - name: Build core (skip tests)
+        working-directory: core
         run: |
-          mvn -B -q -pl core -am \
-            -DskipTests -DskipITs \
-            -Dskip.npm=true -Dskip.web=true -DskipNative=true \
-            clean install
+          mvn -B -q -DskipTests -DskipITs clean install
 
   pit-verify:
     needs: build-core
@@ -38,34 +36,42 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Variante A : Run PIT sur le module 'core' uniquement
+      # S'assure que les tests unitaires de core passent avant PIT
+      - name: Run unit tests (core only)
+        working-directory: core
+        run: mvn -B -q -DskipITs test
+
+      # Exécute PIT sur le module core uniquement
       - name: Run PIT on core
+        working-directory: core
         run: |
-          mvn -B -pl core -am -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
-          mvn -B -pl core -am \
+          mvn -B \
             -DwithHistory \
-            -DreportsDirectory=core/target/pit-reports \
+            -DreportsDirectory=target/pit-reports \
             org.pitest:pitest-maven:mutationCoverage
 
+      # Calcule le score courant et le sauvegarde
       - name: Compute current PIT score
+        working-directory: core
         run: |
           set -e
-          mkdir -p pit-current
-          REPORT_DIR=$(ls -d core/target/pit-reports/* | head -n1)
-          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+          mkdir -p ../pit-current
+          REPORT_DIR=$(ls -d target/pit-reports/* | head -n1)
+          cp "$REPORT_DIR/mutations.csv" ../pit-current/mutations.csv
 
-          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
-          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
+          TOTAL=$(tail -n +2 ../pit-current/mutations.csv | wc -l | tr -d ' ')
+          KILLED=$(grep -c ',KILLED,' ../pit-current/mutations.csv || true)
 
-          echo "TOTAL=$TOTAL"    > pit-current/pit-score.txt
-          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
+          echo "TOTAL=$TOTAL"    > ../pit-current/pit-score.txt
+          echo "KILLED=$KILLED" >> ../pit-current/pit-score.txt
           if [ "$TOTAL" -gt 0 ]; then
-            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
+            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> ../pit-current/pit-score.txt
           else
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> ../pit-current/pit-score.txt
           fi
-          cat pit-current/pit-score.txt
+          cat ../pit-current/pit-score.txt
 
+      # Récupère l'artifact précédent (si existant) pour comparer
       - name: Download previous PIT artifact
         id: dl
         uses: dawidd6/action-download-artifact@v3
@@ -77,6 +83,7 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: ignore
 
+      # Échoue si le score a régressé
       - name: Compare current vs previous (fail on regression)
         run: |
           set -e
@@ -96,11 +103,12 @@ jobs:
               printf("Mutation score regressed: current %.2f < previous %.2f\n", cur, prev);
               exit 1
             } else {
-              printf(" OK: current %.2f >= previous %.2f\n", cur, prev);
+              printf("OK: current %.2f >= previous %.2f\n", cur, prev);
               exit 0
             }
           }'
 
+      # Sauvegarde le score courant comme baseline pour le prochain run
       - name: Upload current PIT artifact
         if: always()
         uses: actions/upload-artifact@v4
