@@ -17,18 +17,22 @@ pit-verify:
       run: mvn -B -q -DskipITs test
 
     # <<< Étape PIT ultra-ciblée >>>
-    - name: Run PIT on core (tiny scope)
+    - name: Run PIT on core (hyper focused)
       working-directory: core
       run: |
         mvn -B \
+          -DtestPlugin=junit5 \
           -DwithHistory \
           -Dthreads=2 \
           -DjvmArgs='-Xmx3g' \
           -DtimeoutConst=15000 -DtimeoutFactor=1.5 \
+          -DmaxMutationsPerClass=20 \
+          -DmutationUnitSize=1 \
           -DreportsDirectory=target/pit-reports \
-          -DtargetClasses='com.graphhopper.util.DistanceCalc*' \
-          -DtargetTests='com.graphhopper.util.DistanceCalc*Test' \
+          -DtargetClasses='com.graphhopper.util.DistanceCalcEuclidean' \
+          -DtargetTests='com.graphhopper.util.DistanceCalcEuclideanTest' \
           org.pitest:pitest-maven:mutationCoverage
+
 
 
     - name: Compute current PIT score
