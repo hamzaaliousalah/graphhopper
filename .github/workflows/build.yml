@@ -43,9 +43,11 @@ jobs:
         run: |
           mvn -B -pl core -am -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
           mvn -B -pl core -am \
+            -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
             org.pitest:pitest-maven:mutationCoverage
+      
 
       - name: Compute current PIT score
         run: |
