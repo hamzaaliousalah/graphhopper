@@ -39,10 +39,10 @@ jobs:
           cache: maven
 
       # Variante A : Run PIT sur le module 'core' uniquement
-      - name: Run PIT on core
+      - name: Run PIT on core (targeted)
         run: |
-          mvn -B -pl core -am -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
-          mvn -B -pl core -am \
+          mvn -B -pl core -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
+          mvn -B -pl core \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
@@ -51,6 +51,7 @@ jobs:
             -Dverbose=true \
             -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
             org.pitest:pitest-maven:mutationCoverage
+      
 
       - name: Compute current PIT score
         run: |
