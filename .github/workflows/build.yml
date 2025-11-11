@@ -46,7 +46,11 @@ jobs:
             -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
+            -DtimeoutFactor=2.0 \
+            -Dthreads=1 \
+            -Dverbose=true \
             org.pitest:pitest-maven:mutationCoverage
+      
       
       
 
