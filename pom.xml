@@ -187,6 +187,19 @@
                         <release>17</release>
                     </configuration>
                 </plugin>
+                <!-- Ajout de pitest -->
+                <plugin>
+                    <groupId>org.pitest</groupId>
+                    <artifactId>pitest-maven</artifactId>
+                    <version>1.15.0</version>
+                    <dependencies>
+                        <dependency>
+                            <groupId>org.pitest</groupId>
+                            <artifactId>pitest-junit5-plugin</artifactId>
+                            <version>1.2.0</version>
+                        </dependency>
+                    </dependencies>
+                </plugin>
 
                 <!-- to run single tests -->
                 <plugin>
