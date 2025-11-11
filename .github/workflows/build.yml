@@ -18,7 +18,7 @@ jobs:
           cache: maven
 
       # Build uniquement 'core' (on saute web-bundle et autres)
-      - name: Build core (skip tests)
+      - name: Build core
         run: |
           mvn -B -q -pl core -am \
             -DskipTests -DskipITs \
@@ -50,7 +50,9 @@ jobs:
             -Dthreads=1 \
             -Dverbose=true \
             -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
+            -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
             org.pitest:pitest-maven:mutationCoverage
+      
       
 
       - name: Compute current PIT score
