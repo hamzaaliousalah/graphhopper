@@ -1,88 +1,95 @@
-pit-verify:
-  needs: build-core
-  runs-on: ubuntu-latest
-  timeout-minutes: 20   # coupe proprement si ça dépasse 20 min
-  steps:
-    - uses: actions/checkout@v4
+name: Build and Test with Mutation Testing
 
-    - name: Setup JDK 21 (Temurin)
-      uses: actions/setup-java@v4
-      with:
-        java-version: '21'
-        distribution: temurin
-        cache: maven
+on: push
 
-    - name: Run unit tests (core only)
-      working-directory: core
-      run: mvn -B -q -DskipITs test
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [24, 25-ea]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Important pour avoir l'historique des commits
 
-    # <<< Étape PIT ultra-ciblée >>>
-    - name: Run PIT on core (hyper focused)
-      working-directory: core
-      run: |
-        mvn -B \
-          -DtestPlugin=junit5 \
-          -DwithHistory \
-          -Dthreads=2 \
-          -DjvmArgs='-Xmx3g' \
-          -DtimeoutConst=15000 -DtimeoutFactor=1.5 \
-          -DmaxMutationsPerClass=20 \
-          -DmutationUnitSize=1 \
-          -DreportsDirectory=target/pit-reports \
-          -DtargetClasses='com.graphhopper.util.DistanceCalcEuclidean' \
-          -DtargetTests='com.graphhopper.util.DistanceCalcEuclideanTest' \
-          org.pitest:pitest-maven:mutationCoverage
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin
 
+      - name: Cache Maven artifacts
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
 
+      - name: Cache node
+        uses: actions/cache@v4
+        with:
+          path: web-bundle/node
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os}}-node-
 
-    - name: Compute current PIT score
-      working-directory: core
-      run: |
-        set -e
-        mkdir -p ../pit-current
-        REPORT_DIR=$(ls -d target/pit-reports/* | head -n1)
-        cp "$REPORT_DIR/mutations.csv" ../pit-current/mutations.csv
-        TOTAL=$(tail -n +2 ../pit-current/mutations.csv | wc -l | tr -d ' ')
-        KILLED=$(grep -c ',KILLED,' ../pit-current/mutations.csv || true)
-        echo "TOTAL=$TOTAL"    > ../pit-current/pit-score.txt
-        echo "KILLED=$KILLED" >> ../pit-current/pit-score.txt
-        if [ "$TOTAL" -gt 0 ]; then
-          awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> ../pit-current/pit-score.txt
-        else
-          echo "LINE_COVERAGE=0.00" >> ../pit-current/pit-score.txt
-        fi
-        cat ../pit-current/pit-score.txt
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: web-bundle/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os}}-node_modules-
 
-    - name: Download previous PIT artifact
-      id: dl
-      uses: dawidd6/action-download-artifact@v3
-      with:
-        workflow: build.yml
-        name: pit-latest
-        path: pit-previous
-        branch: ${{ github.ref_name }}
-        workflow_conclusion: success
-        if_no_artifact_found: ignore
+      - name: Build and Test
+        run: mvn -B clean test
 
-    - name: Compare current vs previous (fail on regression)
-      run: |
-        set -e
-        if [ ! -f pit-previous/pit-score.txt ]; then
-          echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
-          exit 0
-        fi
-        CUR=$(grep LINE_COVERAGE pit-current/pit-score.txt  | cut -d= -f2)
-        PREV=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d= -f2)
-        echo "Previous: ${PREV}%"
-        echo "Current : ${CUR}%"
-        awk -v cur="$CUR" -v prev="$PREV" 'BEGIN{
-          if (cur+0.0001 < prev) { printf("Mutation score regressed: current %.2f < previous %.2f\n", cur, prev); exit 1 }
-          else { printf("OK: current %.2f >= previous %.2f\n", cur, prev); exit 0 }
-        }'
-
-    - name: Upload current PIT artifact
-      if: always()
-      uses: actions/upload-artifact@v4
-      with:
-        name: pit-latest
-        path: pit-current/*
+      - name: Run Mutation Tests and Compare
+        run: |
+          # Installer PIT si nécessaire et exécuter les tests de mutation
+          mvn org.pitest:pitest-maven:mutationCoverage -DoutputFormats=XML,HTML
+          
+          # Extraire le score de mutation actuel
+          CURRENT_SCORE=$(python -c "
+          import xml.etree.ElementTree as ET
+          tree = ET.parse('target/pit-reports/mutations.xml')
+          root = tree.getroot()
+          mutation_score = float(root.get('mutationCoverage') or root.get('mutation_coverage') or 0)
+          print(f'{mutation_score:.2f}')
+          ")
+          
+          echo "Current mutation score: $CURRENT_SCORE%"
+          
+          # Récupérer le score de référence (branche main ou précédent commit)
+          if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" != "refs/heads/main" ]; then
+            git fetch origin main
+            git checkout origin/main
+          
+            # Exécuter PIT sur la branche de référence
+            mvn org.pitest:pitest-maven:mutationCoverage -DoutputFormats=XML,HTML -DskipTests
+          
+            REFERENCE_SCORE=$(python -c "
+            import xml.etree.ElementTree as ET
+            tree = ET.parse('target/pit-reports/mutations.xml')
+            root = tree.getroot()
+            mutation_score = float(root.get('mutationCoverage') or root.get('mutation_coverage') or 0)
+            print(f'{mutation_score:.2f}')
+            ")
+          
+            echo "Reference mutation score: $REFERENCE_SCORE%"
+          
+            # Revenir à la branche actuelle
+            git checkout ${{ github.sha }}
+          
+            # Comparer les scores
+            if (( $(echo "$CURRENT_SCORE < $REFERENCE_SCORE" | bc -l) )); then
+              echo " Mutation score decreased from $REFERENCE_SCORE% to $CURRENT_SCORE%"
+              exit 1
+            else
+              echo " Mutation score maintained or improved: $REFERENCE_SCORE% → $CURRENT_SCORE%"
+            fi
+          else
+            echo "Running on main branch or first commit - no reference comparison"
+          fi
