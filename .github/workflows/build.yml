@@ -48,6 +48,7 @@ jobs:
             -DreportsDirectory=core/target/pit-reports \
             org.pitest:pitest-maven:mutationCoverage
       
+      
 
       - name: Compute current PIT score
         run: |
