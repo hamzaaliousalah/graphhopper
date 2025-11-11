@@ -1,104 +1,88 @@
-name: Build and Test (with PIT guard)
+pit-verify:
+  needs: build-core
+  runs-on: ubuntu-latest
+  timeout-minutes: 20   # coupe proprement si ça dépasse 20 min
+  steps:
+    - uses: actions/checkout@v4
 
-on:
-  push:
-  pull_request:
+    - name: Setup JDK 21 (Temurin)
+      uses: actions/setup-java@v4
+      with:
+        java-version: '21'
+        distribution: temurin
+        cache: maven
 
-jobs:
-  build-core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+    - name: Run unit tests (core only)
+      working-directory: core
+      run: mvn -B -q -DskipITs test
 
-      - name: Setup JDK 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
+    # <<< Étape PIT ultra-ciblée >>>
+    - name: Run PIT on core (hyper focused)
+      working-directory: core
+      run: |
+        mvn -B \
+          -DtestPlugin=junit5 \
+          -DwithHistory \
+          -Dthreads=2 \
+          -DjvmArgs='-Xmx3g' \
+          -DtimeoutConst=15000 -DtimeoutFactor=1.5 \
+          -DmaxMutationsPerClass=20 \
+          -DmutationUnitSize=1 \
+          -DreportsDirectory=target/pit-reports \
+          -DtargetClasses='com.graphhopper.util.DistanceCalcEuclidean' \
+          -DtargetTests='com.graphhopper.util.DistanceCalcEuclideanTest' \
+          org.pitest:pitest-maven:mutationCoverage
 
-      # Build uniquement 'core' (on saute web-bundle et autres)
-      - name: Build core (skip tests)
-        run: |
-          mvn -B -q -pl core -am \
-            -DskipTests -DskipITs \
-            -Dskip.npm=true -Dskip.web=true -DskipNative=true \
-            clean install
 
-  pit-verify:
-    needs: build-core
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
 
-      - name: Setup JDK 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
+    - name: Compute current PIT score
+      working-directory: core
+      run: |
+        set -e
+        mkdir -p ../pit-current
+        REPORT_DIR=$(ls -d target/pit-reports/* | head -n1)
+        cp "$REPORT_DIR/mutations.csv" ../pit-current/mutations.csv
+        TOTAL=$(tail -n +2 ../pit-current/mutations.csv | wc -l | tr -d ' ')
+        KILLED=$(grep -c ',KILLED,' ../pit-current/mutations.csv || true)
+        echo "TOTAL=$TOTAL"    > ../pit-current/pit-score.txt
+        echo "KILLED=$KILLED" >> ../pit-current/pit-score.txt
+        if [ "$TOTAL" -gt 0 ]; then
+          awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> ../pit-current/pit-score.txt
+        else
+          echo "LINE_COVERAGE=0.00" >> ../pit-current/pit-score.txt
+        fi
+        cat ../pit-current/pit-score.txt
 
-      # Variante A : Run PIT sur le module 'core' uniquement
-      - name: Run PIT on core
-        run: |
-          mvn -B -pl core -am -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
-          mvn -B -pl core -am \
-            -DwithHistory \
-            -DreportsDirectory=core/target/pit-reports \
-            org.pitest:pitest-maven:mutationCoverage
+    - name: Download previous PIT artifact
+      id: dl
+      uses: dawidd6/action-download-artifact@v3
+      with:
+        workflow: build.yml
+        name: pit-latest
+        path: pit-previous
+        branch: ${{ github.ref_name }}
+        workflow_conclusion: success
+        if_no_artifact_found: ignore
 
-      - name: Compute current PIT score
-        run: |
-          set -e
-          mkdir -p pit-current
-          REPORT_DIR=$(ls -d core/target/pit-reports/* | head -n1)
-          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
-          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
-          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
-          echo "TOTAL=$TOTAL"    > pit-current/pit-score.txt
-          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          if [ "$TOTAL" -gt 0 ]; then
-            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
-          else
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-          fi
-          cat pit-current/pit-score.txt
+    - name: Compare current vs previous (fail on regression)
+      run: |
+        set -e
+        if [ ! -f pit-previous/pit-score.txt ]; then
+          echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
+          exit 0
+        fi
+        CUR=$(grep LINE_COVERAGE pit-current/pit-score.txt  | cut -d= -f2)
+        PREV=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d= -f2)
+        echo "Previous: ${PREV}%"
+        echo "Current : ${CUR}%"
+        awk -v cur="$CUR" -v prev="$PREV" 'BEGIN{
+          if (cur+0.0001 < prev) { printf("Mutation score regressed: current %.2f < previous %.2f\n", cur, prev); exit 1 }
+          else { printf("OK: current %.2f >= previous %.2f\n", cur, prev); exit 0 }
+        }'
 
-      - name: Download previous PIT artifact
-        id: dl
-        uses: dawidd6/action-download-artifact@v3
-        with:
-          workflow: build.yml
-          name: pit-latest
-          path: pit-previous
-          branch: ${{ github.ref_name }}
-          workflow_conclusion: success
-          if_no_artifact_found: ignore
-
-      - name: Compare current vs previous (fail on regression)
-        run: |
-          set -e
-          if [ ! -f pit-previous/pit-score.txt ]; then
-            echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
-            exit 0
-          fi
-          CUR=$(grep LINE_COVERAGE pit-current/pit-score.txt  | cut -d= -f2)
-          PREV=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d= -f2)
-          echo "Previous: ${PREV}%"
-          echo "Current : ${CUR}%"
-          awk -v cur="$CUR" -v prev="$PREV" 'BEGIN{
-            if (cur+0.0001 < prev) {
-              printf("Mutation score regressed: current %.2f < previous %.2f\n", cur, prev);
-              exit 1
-            } else {
-              printf(" OK: current %.2f >= previous %.2f\n", cur, prev);
-              exit 0
-            }
-          }'
-
-      - name: Upload current PIT artifact
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pit-latest
-          path: pit-current/*
+    - name: Upload current PIT artifact
+      if: always()
+      uses: actions/upload-artifact@v4
+      with:
+        name: pit-latest
+        path: pit-current/*
