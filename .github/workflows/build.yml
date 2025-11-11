@@ -57,7 +57,20 @@ jobs:
         run: |
           set -e
           mkdir -p pit-current
-          REPORT_DIR=$(ls -d core/target/pit-reports/* | head -n1)
+
+          # Trouve le dossier PIT généré
+          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
+          if [ -z "$REPORT_DIR" ]; then
+            echo "::error::No PIT report found in core/target/pit-reports"
+            exit 1
+          fi
+
+          # Vérifie que mutations.csv existe
+          if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
+            echo "::error::mutations.csv not found in $REPORT_DIR"
+            exit 1
+          fi
+
           cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
 
           TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
@@ -71,6 +84,7 @@ jobs:
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
           fi
           cat pit-current/pit-score.txt
+      
 
       - name: Download previous PIT artifact
         id: dl
