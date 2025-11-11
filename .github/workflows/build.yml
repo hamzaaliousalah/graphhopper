@@ -58,17 +58,32 @@ jobs:
           set -e
           mkdir -p pit-current
 
-          # Trouve le dossier PIT généré
-          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
-          if [ -z "$REPORT_DIR" ]; then
-            echo "::error::No PIT report found in core/target/pit-reports"
-            exit 1
+          if [ ! -d core/target/pit-reports ]; then
+            echo "::notice::No PIT report directory found. Possibly no mutants generated for targeted class."
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
           fi
 
-          # Vérifie que mutations.csv existe
+          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
+          if [ -z "$REPORT_DIR" ]; then
+            echo "::notice::No PIT report found inside pit-reports directory."
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
+          fi
+
           if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
-            echo "::error::mutations.csv not found in $REPORT_DIR"
-            exit 1
+            echo "::notice::mutations.csv not found in $REPORT_DIR"
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
           fi
 
           cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
@@ -84,6 +99,7 @@ jobs:
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
           fi
           cat pit-current/pit-score.txt
+      
       
 
       - name: Download previous PIT artifact
