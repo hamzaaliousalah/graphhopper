@@ -26,7 +26,6 @@
     else
       echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
     fi
-    
     cat pit-current/pit-score.txt
 
 
