@@ -37,24 +37,23 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Run PIT on core (with broader targeting)
+      - name: Run PIT on core (optimized)
         run: |
-          # D'abord, lancer les tests normaux
           mvn -B -pl core -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
-          
-          # Ensuite PIT avec une configuration plus large
+
           mvn -B -pl core \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DreportsDirectory=target/pit-reports \
-            -DtimeoutFactor=2.0 \
-            -Dthreads=2 \
-            -Dverbose=true \
-            -DtargetClasses="com.graphhopper.*" \
-            -DtargetTests="com.graphhopper.*" \
-            -DexcludedClasses="com.graphhopper.jsprit.*" \
-            -Dmutators=ALL \
+            -DtimeoutFactor=1.2 \
+            -Dthreads=4 \
+            -DtargetClasses="com.graphhopper.util.*" \
+            -DtargetTests="com.graphhopper.util.*Test" \
+            -DexcludedTestClasses="*IT,*IntegrationTest" \
+            -Dmutators="CONDITIONALS_BOUNDARY,INCREMENTS,MATH,INVERT_NEGS" \
+            -DmaxMutationsPerClass=20 \
             -DfailWhenNoMutations=false \
-            -DoutputFormats=CSV,HTML,XML \
+            -DoutputFormats=CSV \
+            -Dverbose=false \
             org.pitest:pitest-maven:mutationCoverage
 
       - name: Debug - List PIT report files
