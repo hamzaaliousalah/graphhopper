@@ -64,7 +64,8 @@ jobs:
           mkdir -p pit-current
 
           # Find the most recent PIT report directory
-          REPORT_DIR=$(find core/core/target/pit-reports -type d -name "[0-9]*" | sort | tail -n 1)
+          REPORT_DIR=$(find core/target/pit-reports -type f -name "mutations.csv" -exec dirname {} \; | sort | tail -n 1)
+
 
           if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
             echo "::error::mutations.csv not found in $REPORT_DIR"
@@ -86,5 +87,10 @@ jobs:
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
           fi
           cat pit-current/pit-score.txt
-      
+
+      - name: Debug PIT report structure
+        run: |
+          echo "Listing all files under core/target/pit-reports:"
+          find core/target/pit-reports
+
 
