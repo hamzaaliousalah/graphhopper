@@ -39,6 +39,7 @@ jobs:
           cache: maven
 
 
+
       # Variante A : Run PIT sur le module 'core' uniquement
       - name: Run PIT on core (targeted)
         run: |
