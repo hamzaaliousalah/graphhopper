@@ -1,85 +1,32 @@
-name: Build and Test (with PIT)
+- name: Compute current PIT score
+  run: |
+    set -e
+    mkdir -p pit-current
+    
+    # Trouver le dossier contenant mutations.csv
+    REPORT_DIR=$(find graphhopper/core/core/target/pit-reports -type f -name "mutations.csv" -exec dirname {} \; || true)
+    
+    if [ -z "$REPORT_DIR" ] || [ ! -f "$REPORT_DIR/mutations.csv" ]; then
+      echo "::notice::mutations.csv not found in $REPORT_DIR"
+      echo "TOTAL=0" > pit-current/pit-score.txt
+      echo "KILLED=0" >> pit-current/pit-score.txt
+      echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+      cat pit-current/pit-score.txt
+      exit 0
+    fi
+    
+    cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+    TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
+    KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
+    echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
+    echo "KILLED=$KILLED" >> pit-current/pit-score.txt
+    
+    if [ "$TOTAL" -gt 0 ]; then
+      awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
+    else
+      echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+    fi
+    
+    cat pit-current/pit-score.txt
 
-on:
-  push:
-  pull_request:
-
-jobs:
-  build-core:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup JDK 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
-
-      - name: Build core module
-        run: |
-          mvn -B -pl core -am clean install -DskipTests
-
-      - name: List compiled classes
-        run: |
-          echo "Classes in core module:"
-          find core/target/classes -name "*.class"
-          echo "Test classes in core module:"
-          find core/target/test-classes -name "*.class"
-
-  pit-verify:
-    needs: build-core
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup JDK 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
-
-      - name: Run PIT mutation tests
-        run: |
-          mvn -B -pl core test
-          mvn -B -pl core \
-            -DargLine="-XX:+EnableDynamicAgentLoading" \
-            -DwithHistory \
-            -DreportsDirectory=core/target/pit-reports \
-            -DtimeoutFactor=2.0 \
-            -Dthreads=1 \
-            -Dverbose=true \
-            -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
-            -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
-            -Dmutators=ALL \
-            -DfailWhenNoMutations=true \
-            -DoutputFormats=CSV,HTML \
-            org.pitest:pitest-maven:mutationCoverage
-
-      - name: Compute current PIT score
-        run: |
-          set -e
-          mkdir -p pit-current
-          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
-          if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
-            echo "::notice::mutations.csv not found in $REPORT_DIR"
-            echo "TOTAL=0" > pit-current/pit-score.txt
-            echo "KILLED=0" >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            cat pit-current/pit-score.txt
-            exit 0
-          fi
-          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
-          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
-          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
-          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
-          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          if [ "$TOTAL" -gt 0 ]; then
-            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
-          else
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-          fi
-          cat pit-current/pit-score.txt
 
