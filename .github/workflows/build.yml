@@ -17,6 +17,7 @@ jobs:
           distribution: temurin
           cache: maven
 
+      # Build uniquement 'core' (on saute web-bundle et autres)
       - name: Build core
         run: |
           mvn -B -q -pl core -am \
@@ -37,102 +38,77 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Run PIT on core (optimized)
+      # Variante A : Run PIT sur le module 'core' uniquement
+      - name: Run PIT on core (targeted)
         run: |
           mvn -B -pl core -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
-
           mvn -B -pl core \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
-            -DreportsDirectory=target/pit-reports \
-            -DtimeoutFactor=1.2 \
-            -Dthreads=4 \
-            -DtargetClasses="com.graphhopper.util.*" \
-            -DtargetTests="com.graphhopper.util.*Test" \
-            -DexcludedTestClasses="*IT,*IntegrationTest" \
-            -Dmutators="CONDITIONALS_BOUNDARY,INCREMENTS,MATH,INVERT_NEGS" \
-            -Dfeatures="+CLASSLIMIT(20)" \
-            -DfailWhenNoMutations=false \
-            -DoutputFormats=CSV \
-            -Dverbose=false \
+            -DwithHistory \
+            -DreportsDirectory=core/target/pit-reports \
+            -DtimeoutFactor=2.0 \
+            -Dthreads=1 \
+            -Dverbose=true \
+            -DtargetClasses=com.graphhopper.util.* \
+            -DtargetTests=com.graphhopper.util.* \
+            -Dmutators=ALL \
+            -DfailWhenNoMutations=true \
+            -DoutputFormats=CSV,HTML \
             org.pitest:pitest-maven:mutationCoverage
 
-      - name: Debug - List PIT report files
-        run: |
-          echo "=== Contenu du répertoire core/target ==="
-          ls -la core/target/ || echo "core/target/ non trouvé"
-          echo "=== Recherche des rapports PIT ==="
-          find . -name "mutations.csv" -type f 2>/dev/null || echo "Aucun mutations.csv trouvé"
-          find . -name "mutations.xml" -type f 2>/dev/null || echo "Aucun mutations.xml trouvé"
 
-      - name: Compute current PIT score (improved)
-        id: compute-pit
+
+      - name: Compute current PIT score
         run: |
           set -e
           mkdir -p pit-current
-          
-          # Chercher le fichier mutations.csv
-          MUTATIONS_FILE=$(find . -path "*/pit-reports/*/mutations.csv" -type f | head -1)
-          
-          if [ -z "$MUTATIONS_FILE" ]; then
-            echo "::warning::Aucun fichier mutations.csv trouvé"
-            echo "TOTAL=0" > pit-current/pit-score.txt
-            echo "KILLED=0" >> pit-current/pit-score.txt
-            echo "SURVIVED=0" >> pit-current/pit-score.txt
+
+          if [ ! -d core/target/pit-reports ]; then
+            echo "::notice::No PIT report directory found. Possibly no mutants generated for targeted class."
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            echo "DETECTED=0.00" >> pit-current/pit-score.txt
             cat pit-current/pit-score.txt
             exit 0
           fi
-          
-          echo "Fichier mutations trouvé: $MUTATIONS_FILE"
-          cp "$MUTATIONS_FILE" pit-current/mutations.csv
-          
-          # Analyser le fichier CSV
+
+          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
+          if [ -z "$REPORT_DIR" ]; then
+            echo "::notice::No PIT report found inside pit-reports directory."
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
+          fi
+
+          if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
+            echo "::notice::mutations.csv not found in $REPORT_DIR"
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
+          fi
+
+          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+
           TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
           KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
-          SURVIVED=$(grep -c ',SURVIVED,' pit-current/mutations.csv || true)
-          TIMED_OUT=$(grep -c ',TIMED_OUT,' pit-current/mutations.csv || true)
-          NON_VIABLE=$(grep -c ',NON_VIABLE,' pit-current/mutations.csv || true)
-          MEMORY_ERROR=$(grep -c ',MEMORY_ERROR,' pit-current/mutations.csv || true)
-          RUN_ERROR=$(grep -c ',RUN_ERROR,' pit-current/mutations.csv || true)
-          
-          # Calculer le score de détection
-          DETECTED=$((KILLED + TIMED_OUT + MEMORY_ERROR + NON_VIABLE))
-          TOTAL_DETECTABLE=$((TOTAL - RUN_ERROR))  # Exclure les erreurs d'exécution
-          
-          echo "Statistiques des mutants:"
-          echo "  TOTAL: $TOTAL"
-          echo "  KILLED: $KILLED"
-          echo "  SURVIVED: $SURVIVED"
-          echo "  TIMED_OUT: $TIMED_OUT"
-          echo "  NON_VIABLE: $NON_VIABLE"
-          echo "  MEMORY_ERROR: $MEMORY_ERROR"
-          echo "  RUN_ERROR: $RUN_ERROR"
-          echo "  DETECTED: $DETECTED"
-          echo "  TOTAL_DETECTABLE: $TOTAL_DETECTABLE"
-          
-          # Calculer le pourcentage de détection
-          if [ "$TOTAL_DETECTABLE" -gt 0 ]; then
-            DETECTION_PERCENT=$(echo "scale=2; $DETECTED * 100 / $TOTAL_DETECTABLE" | bc)
-          else
-            DETECTION_PERCENT=0.00
-          fi
-          
-          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
+
+          echo "TOTAL=$TOTAL"    > pit-current/pit-score.txt
           echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          echo "SURVIVED=$SURVIVED" >> pit-current/pit-score.txt
-          echo "DETECTED=$DETECTED" >> pit-current/pit-score.txt
-          echo "TOTAL_DETECTABLE=$TOTAL_DETECTABLE" >> pit-current/pit-score.txt
-          echo "DETECTION_RATE=$DETECTION_PERCENT" >> pit-current/pit-score.txt
-          
+          if [ "$TOTAL" -gt 0 ]; then
+            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
+          else
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+          fi
           cat pit-current/pit-score.txt
-          
-          # Sauvegarder les valeurs pour les étapes suivantes
-          echo "total=$TOTAL" >> $GITHUB_OUTPUT
-          echo "detection_rate=$DETECTION_PERCENT" >> $GITHUB_OUTPUT
+
+
 
       - name: Download previous PIT artifact
-        id: download-prev
+        id: dl
         uses: dawidd6/action-download-artifact@v3
         with:
           workflow: build.yml
@@ -142,47 +118,35 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: ignore
 
-      - name: Compare current vs previous
+      - name: Compare current vs previous (fail on regression)
         run: |
           set -e
           if [ ! -f pit-previous/pit-score.txt ]; then
             echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
-            echo "CURRENT_DETECTION_RATE=${{ steps.compute-pit.outputs.detection_rate }}" >> $GITHUB_ENV
             exit 0
           fi
 
-          # Lire le taux de détection au lieu de LINE_COVERAGE
-          CUR=$(grep DETECTION_RATE pit-current/pit-score.txt | cut -d= -f2)
-          PREV=$(grep DETECTION_RATE pit-previous/pit-score.txt | cut -d= -f2)
+          CUR=$(grep LINE_COVERAGE pit-current/pit-score.txt  | cut -d= -f2)
+          PREV=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d= -f2)
 
-          echo "Previous detection rate: ${PREV}%"
-          echo "Current detection rate: ${CUR}%"
+          echo "Previous: ${PREV}%"
+          echo "Current : ${CUR}%"
 
-          # Comparer avec une marge de 0.5% pour éviter les faux positifs
           awk -v cur="$CUR" -v prev="$PREV" 'BEGIN{
-            if (cur + 0.5 < prev) {
-              printf("Mutation score regressed: current %.2f%% < previous %.2f%%\n", cur, prev);
+            if (cur+0.0001 < prev) {
+              printf("Mutation score regressed: current %.2f < previous %.2f\n", cur, prev);
               exit 1
             } else {
-              printf(" OK: current %.2f%% >= previous %.2f%% (with 0.5%% margin)\n", cur, prev);
+              printf(" OK: current %.2f >= previous %.2f\n", cur, prev);
               exit 0
             }
           }'
 
-      - name: Upload PIT HTML report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pit-html-report
-          path: |
-            **/pit-reports/*/index.html
-            **/pit-reports/*/html/
-          retention-days: 30
-
-      - name: Upload current PIT score
+      - name: Upload current PIT artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pit-latest
           path: pit-current/*
-          retention-days: 30
+
+
