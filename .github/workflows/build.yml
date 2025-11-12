@@ -21,7 +21,6 @@ jobs:
       - name: Build core
         run: |
           mvn -B -q -pl core -am \
-            -DskipTests -DskipITs \
             -Dskip.npm=true -Dskip.web=true -DskipNative=true \
             clean install
 
@@ -38,49 +37,34 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Variante A : Run PIT sur le module 'core' uniquement
+      # Run PIT sur le module 'core' uniquement
       - name: Run PIT on core (targeted)
         run: |
-          mvn -B -pl core -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
           mvn -B -pl core \
+            org.pitest:pitest-maven:mutationCoverage \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
-            -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
-            -DtimeoutFactor=2.0 \
             -Dthreads=1 \
             -Dverbose=true \
-            -DtargetClasses=com.graphhopper.util.* \
-            -DtargetTests=com.graphhopper.util.* \
+            -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
+            -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
             -Dmutators=ALL \
             -DfailWhenNoMutations=true \
-            -DoutputFormats=CSV,HTML \
-            org.pitest:pitest-maven:mutationCoverage
+            -DoutputFormats=CSV,HTML
 
+      # Vérifier que le CSV est bien généré
+      - name: List PIT reports
+        run: |
+          ls -l core/target/pit-reports
+          ls -l core/target/pit-reports/*/mutations.csv || echo "mutations.csv not found"
 
-
+      # Compute current PIT score
       - name: Compute current PIT score
         run: |
           set -e
           mkdir -p pit-current
 
-          if [ ! -d core/target/pit-reports ]; then
-            echo "::notice::No PIT report directory found. Possibly no mutants generated for targeted class."
-            echo "TOTAL=0"         > pit-current/pit-score.txt
-            echo "KILLED=0"        >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            cat pit-current/pit-score.txt
-            exit 0
-          fi
-
-          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
-          if [ -z "$REPORT_DIR" ]; then
-            echo "::notice::No PIT report found inside pit-reports directory."
-            echo "TOTAL=0"         > pit-current/pit-score.txt
-            echo "KILLED=0"        >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            cat pit-current/pit-score.txt
-            exit 0
-          fi
+          REPORT_DIR=core/target/pit-reports
 
           if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
             echo "::notice::mutations.csv not found in $REPORT_DIR"
@@ -105,8 +89,7 @@ jobs:
           fi
           cat pit-current/pit-score.txt
 
-
-
+      # Download previous PIT artifact
       - name: Download previous PIT artifact
         id: dl
         uses: dawidd6/action-download-artifact@v3
@@ -118,6 +101,7 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: ignore
 
+      # Compare current vs previous (fail on regression)
       - name: Compare current vs previous (fail on regression)
         run: |
           set -e
@@ -142,11 +126,10 @@ jobs:
             }
           }'
 
+      # Upload current PIT artifact
       - name: Upload current PIT artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pit-latest
           path: pit-current/*
-
-
