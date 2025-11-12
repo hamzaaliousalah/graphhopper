@@ -50,7 +50,7 @@ jobs:
             -DtargetTests="com.graphhopper.util.*Test" \
             -DexcludedTestClasses="*IT,*IntegrationTest" \
             -Dmutators="CONDITIONALS_BOUNDARY,INCREMENTS,MATH,INVERT_NEGS" \
-            -DmaxMutationsPerClass=20 \
+            -Dfeatures="+CLASSLIMIT(20)" \
             -DfailWhenNoMutations=false \
             -DoutputFormats=CSV \
             -Dverbose=false \
