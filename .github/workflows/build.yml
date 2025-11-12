@@ -17,10 +17,10 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Compile les classes et tests pour le module 'core'
+      # Compile classes et tests pour le module core
       - name: Build core and compile tests
         run: |
-          mvn -B -pl core -am clean test-compile
+          mvn -B -pl core -am clean compile test-compile
 
   pit-verify:
     needs: build-core
@@ -58,9 +58,9 @@ jobs:
           set -e
           mkdir -p pit-current
 
-          REPORT_DIR=$(find core/target/pit-reports -type f -name "mutations.csv" -exec dirname {} \; | head -n 1)
-          if [ -z "$REPORT_DIR" ] || [ ! -f "$REPORT_DIR/mutations.csv" ]; then
-            echo "::notice::mutations.csv not found in $REPORT_DIR"
+          REPORT_FILE=$(find core/target/pit-reports -type f -name "mutations.csv" | head -n 1)
+          if [ -z "$REPORT_FILE" ] || [ ! -f "$REPORT_FILE" ]; then
+            echo "::notice::mutations.csv not found"
             echo "TOTAL=0"         > pit-current/pit-score.txt
             echo "KILLED=0"        >> pit-current/pit-score.txt
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
@@ -68,7 +68,7 @@ jobs:
             exit 0
           fi
 
-          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+          cp "$REPORT_FILE" pit-current/mutations.csv
 
           TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
           KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
