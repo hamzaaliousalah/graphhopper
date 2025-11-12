@@ -49,13 +49,11 @@ jobs:
             -DtimeoutFactor=2.0 \
             -Dthreads=1 \
             -Dverbose=true \
-            -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
-            -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
+            -DtargetClasses=com.graphhopper.util.* \
+            -DtargetTests=com.graphhopper.util.* \
             -Dmutators=ALL \
             -DfailWhenNoMutations=true \
             org.pitest:pitest-maven:mutationCoverage
-      
-      
       
 
       - name: Compute current PIT score
