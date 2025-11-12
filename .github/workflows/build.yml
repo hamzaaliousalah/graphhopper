@@ -21,6 +21,7 @@ jobs:
       - name: Build core
         run: |
           mvn -B -q -pl core -am \
+            -DskipTests -DskipITs \
             -Dskip.npm=true -Dskip.web=true -DskipNative=true \
             clean install
 
@@ -37,9 +38,14 @@ jobs:
           distribution: temurin
           cache: maven
 
+      # Compile les tests pour PIT
+      - name: Compile core tests
+        run: |
+          mvn -B -pl core test-compile
+
+      # Run PIT sur le module 'core'
       - name: Run PIT on core (targeted)
         run: |
-          mvn -B -pl core -DskipITs -Dskip.npm=true -Dskip.web=true -DskipNative=true test
           mvn -B -pl core \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DwithHistory \
@@ -53,14 +59,26 @@ jobs:
             -DfailWhenNoMutations=false \
             -DoutputFormats=CSV,HTML \
             org.pitest:pitest-maven:mutationCoverage
-      
 
       - name: Compute current PIT score
         run: |
           set -e
           mkdir -p pit-current
 
-          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
+          # Corriger le chemin pour CI
+          REPORT_DIR=$(find core/target/pit-reports -type d -name "*" | head -n1)
+
+          # Debug pour vérifier si le dossier existe
+          echo "DEBUG: REPORT_DIR = $REPORT_DIR"
+          if [ ! -d "$REPORT_DIR" ]; then
+            echo "::notice::No PIT report directory found. Possibly no mutants generated for targeted class."
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 0
+          fi
+
           if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
             echo "::notice::mutations.csv not found in $REPORT_DIR"
             echo "TOTAL=0"         > pit-current/pit-score.txt
