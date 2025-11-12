@@ -17,7 +17,7 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Build le module 'core' et ses dépendances, compiler tests
+      # Compile les classes et tests pour le module 'core'
       - name: Build core and compile tests
         run: |
           mvn -B -pl core -am clean test-compile
@@ -35,14 +35,7 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Verify classes exist
-        run: |
-          echo "Classes in core:"
-          ls -R core/target/classes
-          echo "Test classes in core:"
-          ls -R core/target/test-classes
-
-      # Run PIT sur core en ciblant toutes les classes et tous les tests
+      # Run PIT sur le module 'core'
       - name: Run PIT on core
         run: |
           mkdir -p core/target/pit-reports
@@ -59,26 +52,28 @@ jobs:
             -DoutputFormats=CSV,HTML \
             org.pitest:pitest-maven:mutationCoverage
 
+      # Compute current PIT score
       - name: Compute current PIT score
         run: |
           set -e
           mkdir -p pit-current
-          
-          REPORT_DIR=$(find core/target/pit-reports -type f -name "mutations.csv" | head -n 1)
-          if [ ! -f "$REPORT_DIR" ]; then
-            echo "::notice::mutations.csv not found. No mutants generated."
-            echo "TOTAL=0" > pit-current/pit-score.txt
-            echo "KILLED=0" >> pit-current/pit-score.txt
+
+          REPORT_DIR=$(find core/target/pit-reports -type f -name "mutations.csv" -exec dirname {} \; | head -n 1)
+          if [ -z "$REPORT_DIR" ] || [ ! -f "$REPORT_DIR/mutations.csv" ]; then
+            echo "::notice::mutations.csv not found in $REPORT_DIR"
+            echo "TOTAL=0"         > pit-current/pit-score.txt
+            echo "KILLED=0"        >> pit-current/pit-score.txt
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
             cat pit-current/pit-score.txt
             exit 0
           fi
 
-          cp "$REPORT_DIR" pit-current/mutations.csv
+          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+
           TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
           KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
 
-          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
+          echo "TOTAL=$TOTAL"    > pit-current/pit-score.txt
           echo "KILLED=$KILLED" >> pit-current/pit-score.txt
           if [ "$TOTAL" -gt 0 ]; then
             awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
@@ -87,6 +82,7 @@ jobs:
           fi
           cat pit-current/pit-score.txt
 
+      # Download previous PIT artifact
       - name: Download previous PIT artifact
         id: dl
         uses: dawidd6/action-download-artifact@v3
@@ -98,11 +94,12 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: ignore
 
+      # Compare current vs previous (fail on regression)
       - name: Compare current vs previous (fail on regression)
         run: |
           set -e
           if [ ! -f pit-previous/pit-score.txt ]; then
-            echo "::notice::No previous PIT baseline found -> skipping regression check."
+            echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
             exit 0
           fi
 
@@ -122,9 +119,11 @@ jobs:
             }
           }'
 
+      # Upload current PIT artifact
       - name: Upload current PIT artifact
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: pit-latest
           path: pit-current/*
+
