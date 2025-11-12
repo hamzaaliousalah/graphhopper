@@ -17,7 +17,7 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Build uniquement 'core' (on saute web-bundle et autres)
+      # Build uniquement 'core'
       - name: Build core
         run: |
           mvn -B -q -pl core -am \
