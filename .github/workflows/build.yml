@@ -53,7 +53,9 @@ jobs:
             -DtargetTests=com.graphhopper.util.* \
             -Dmutators=ALL \
             -DfailWhenNoMutations=true \
+            -DoutputFormats=CSV,HTML \
             org.pitest:pitest-maven:mutationCoverage
+      
       
 
       - name: Compute current PIT score
