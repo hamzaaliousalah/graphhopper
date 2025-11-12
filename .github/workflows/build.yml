@@ -17,13 +17,10 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Build uniquement 'core'
-      - name: Build core
+      # Build le module 'core' et ses dépendances, compiler tests
+      - name: Build core and compile tests
         run: |
-          mvn -B -q -pl core -am \
-            -DskipTests -DskipITs \
-            -Dskip.npm=true -Dskip.web=true -DskipNative=true \
-            clean install
+          mvn -B -pl core -am clean test-compile
 
   pit-verify:
     needs: build-core
@@ -38,17 +35,19 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Compile les tests pour PIT
-      - name: Compile core tests
+      - name: Verify classes exist
         run: |
-          mvn -B -pl core test-compile
+          echo "Classes in core:"
+          ls -R core/target/classes
+          echo "Test classes in core:"
+          ls -R core/target/test-classes
 
-      # Run PIT sur le module 'core'
-      - name: Run PIT on core (targeted)
+      # Run PIT sur core en ciblant toutes les classes et tous les tests
+      - name: Run PIT on core
         run: |
+          mkdir -p core/target/pit-reports
           mvn -B -pl core \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
-            -DwithHistory \
             -DreportsDirectory=core/target/pit-reports \
             -DtimeoutFactor=2.0 \
             -Dthreads=1 \
@@ -64,36 +63,22 @@ jobs:
         run: |
           set -e
           mkdir -p pit-current
-
-          # Corriger le chemin pour CI
-          REPORT_DIR=$(find core/target/pit-reports -type d -name "*" | head -n1)
-
-          # Debug pour vérifier si le dossier existe
-          echo "DEBUG: REPORT_DIR = $REPORT_DIR"
-          if [ ! -d "$REPORT_DIR" ]; then
-            echo "::notice::No PIT report directory found. Possibly no mutants generated for targeted class."
-            echo "TOTAL=0"         > pit-current/pit-score.txt
-            echo "KILLED=0"        >> pit-current/pit-score.txt
+          
+          REPORT_DIR=$(find core/target/pit-reports -type f -name "mutations.csv" | head -n 1)
+          if [ ! -f "$REPORT_DIR" ]; then
+            echo "::notice::mutations.csv not found. No mutants generated."
+            echo "TOTAL=0" > pit-current/pit-score.txt
+            echo "KILLED=0" >> pit-current/pit-score.txt
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
             cat pit-current/pit-score.txt
             exit 0
           fi
 
-          if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
-            echo "::notice::mutations.csv not found in $REPORT_DIR"
-            echo "TOTAL=0"         > pit-current/pit-score.txt
-            echo "KILLED=0"        >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            cat pit-current/pit-score.txt
-            exit 0
-          fi
-
-          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
-
+          cp "$REPORT_DIR" pit-current/mutations.csv
           TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
           KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
 
-          echo "TOTAL=$TOTAL"    > pit-current/pit-score.txt
+          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
           echo "KILLED=$KILLED" >> pit-current/pit-score.txt
           if [ "$TOTAL" -gt 0 ]; then
             awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
@@ -117,7 +102,7 @@ jobs:
         run: |
           set -e
           if [ ! -f pit-previous/pit-score.txt ]; then
-            echo "::notice::No previous PIT baseline found (first run) -> skipping regression check."
+            echo "::notice::No previous PIT baseline found -> skipping regression check."
             exit 0
           fi
 
