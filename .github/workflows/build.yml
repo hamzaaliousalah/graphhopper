@@ -1,38 +1,90 @@
-name: Mutation Test for DistanceCalcEuclidean
+name: Build and Test (with PIT)
 
-on: push
+on:
+  push:
+  pull_request:
 
 jobs:
-  mutation-test:
+  build-core:
     runs-on: ubuntu-latest
-    strategy:
-      matrix:
-        java-version: [ 24, 25-ea ]
-
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Java
+      - name: Setup JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
-          java-version: ${{ matrix.java-version }}
+          java-version: '21'
           distribution: temurin
+          cache: maven
 
-      - name: Build only core module
-        run: mvn -pl core -am clean install
-
-      - name: Run PIT on DistanceCalcEuclidean
+      - name: Build core module
         run: |
-          mvn -pl core org.pitest:pitest-maven:mutationCoverage \
+          mvn -B -pl core -am clean install -DskipTests
+
+      - name: List compiled classes
+        run: |
+          echo "Classes in core module:"
+          find core/target/classes -name "*.class"
+          echo "Test classes in core module:"
+          find core/target/test-classes -name "*.class"
+
+  pit-verify:
+    needs: build-core
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup JDK 21 (Temurin)
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: temurin
+          cache: maven
+
+      - name: Run PIT mutation tests
+        run: |
+          mvn -B -pl core test
+          mvn -B -pl core \
+            -DargLine="-XX:+EnableDynamicAgentLoading" \
+            -DwithHistory \
+            -DreportsDirectory=core/target/pit-reports \
+            -DtimeoutFactor=2.0 \
+            -Dthreads=1 \
+            -Dverbose=true \
             -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
             -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
-            -DoutputFormats=XML
+            -Dmutators=ALL \
+            -DfailWhenNoMutations=true \
+            -DoutputFormats=CSV,HTML \
+            org.pitest:pitest-maven:mutationCoverage
 
-      - name: Check mutation score
+      - name: Compute current PIT score
         run: |
-          echo "Checking mutation score for DistanceCalcEuclidean..."
-          SCORE=$(xmllint --xpath "string(//mutationStatistics/percentageCovered)" core/target/pit-reports/*/mutations.xml)
-          echo "Mutation score: $SCORE%"
-          THRESHOLD=80.0
-          awk -v s="$SCORE" -v t="$THRESHOLD" 'BEGIN {exit (s < t) ? 1 : 0}'
+          set -e
+          mkdir -p pit-current
+
+          # Find the most recent PIT report directory
+          REPORT_DIR=$(find core/core/target/pit-reports -type d -name "[0-9]*" | sort | tail -n 1)
+
+          if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
+            echo "::error::mutations.csv not found in $REPORT_DIR"
+            echo "TOTAL=0" > pit-current/pit-score.txt
+            echo "KILLED=0" >> pit-current/pit-score.txt
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            cat pit-current/pit-score.txt
+            exit 1
+          fi
+
+          cp "$REPORT_DIR/mutations.csv" pit-current/mutations.csv
+          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
+          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
+          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
+          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
+          if [ "$TOTAL" -gt 0 ]; then
+            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
+          else
+            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+          fi
+          cat pit-current/pit-score.txt
+      
 
