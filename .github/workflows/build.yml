@@ -37,35 +37,27 @@ jobs:
           distribution: temurin
           cache: maven
 
-      # Run PIT sur le module 'core' uniquement
       - name: Run PIT on core (targeted)
         run: |
           mvn -B -pl core \
-            org.pitest:pitest-maven:mutationCoverage \
             -DargLine="-XX:+EnableDynamicAgentLoading" \
             -DreportsDirectory=core/target/pit-reports \
+            -DtimeoutFactor=2.0 \
             -Dthreads=1 \
             -Dverbose=true \
             -DtargetClasses=com.graphhopper.util.DistanceCalcEuclidean \
             -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
             -Dmutators=ALL \
             -DfailWhenNoMutations=true \
-            -DoutputFormats=CSV,HTML
+            -DoutputFormats=CSV,HTML \
+            org.pitest:pitest-maven:mutationCoverage
 
-      # Vérifier que le CSV est bien généré
-      - name: List PIT reports
-        run: |
-          ls -l core/target/pit-reports
-          ls -l core/target/pit-reports/*/mutations.csv || echo "mutations.csv not found"
-
-      # Compute current PIT score
       - name: Compute current PIT score
         run: |
           set -e
           mkdir -p pit-current
 
-          REPORT_DIR=core/target/pit-reports
-
+          REPORT_DIR=$(find core/target/pit-reports -type d -name "*")
           if [ ! -f "$REPORT_DIR/mutations.csv" ]; then
             echo "::notice::mutations.csv not found in $REPORT_DIR"
             echo "TOTAL=0"         > pit-current/pit-score.txt
@@ -89,7 +81,6 @@ jobs:
           fi
           cat pit-current/pit-score.txt
 
-      # Download previous PIT artifact
       - name: Download previous PIT artifact
         id: dl
         uses: dawidd6/action-download-artifact@v3
@@ -101,7 +92,6 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: ignore
 
-      # Compare current vs previous (fail on regression)
       - name: Compare current vs previous (fail on regression)
         run: |
           set -e
@@ -126,7 +116,6 @@ jobs:
             }
           }'
 
-      # Upload current PIT artifact
       - name: Upload current PIT artifact
         if: always()
         uses: actions/upload-artifact@v4
