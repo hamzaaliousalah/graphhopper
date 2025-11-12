@@ -92,5 +92,10 @@ jobs:
         run: |
           echo "Listing all files under core/target/pit-reports:"
           find core/target/pit-reports
+      - name: Upload PIT report as artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-report
+          path: core/target/pit-reports
 
 
