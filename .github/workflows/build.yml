@@ -103,10 +103,11 @@ jobs:
           fi
 
       - name: Save current score to cache
-        uses: actions/cache@v4
-        with:
-          path: pit-current/pit-score.txt
-          key: pit-score-${{ github.ref }}
+        if: always()
+        run: |
+          mkdir -p pit-previous
+          cp pit-current/pit-score.txt pit-previous/pit-score.txt
+      
 
       - name: Upload PIT report
         uses: actions/upload-artifact@v4
