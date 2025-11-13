@@ -1,16 +1,16 @@
-name: Build and Test (with PIT)
+name: Build and Test
 
 on:
   push:
   pull_request:
 
 jobs:
-  build-core:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup JDK 21 (Temurin)
+      - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -18,29 +18,7 @@ jobs:
           cache: maven
 
       - name: Build core module
-        run: |
-          mvn -B -pl core -am clean install -DskipTests
-
-  pit-verify:
-    needs: build-core
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Setup JDK 21 (Temurin)
-        uses: actions/setup-java@v4
-        with:
-          java-version: '21'
-          distribution: temurin
-          cache: maven
-
-      - name: Restore previous mutation score from cache
-        uses: actions/cache@v4
-        with:
-          path: pit-previous/pit-score.txt
-          key: pit-score-${{ github.ref }}
-          restore-keys: |
-            pit-score-
+        run: mvn -B -pl core -am clean install -DskipTests
 
       - name: Run PIT mutation tests
         run: |
@@ -56,63 +34,46 @@ jobs:
             -DtargetTests=com.graphhopper.util.DistanceCalcEuclideanTest \
             -Dmutators=ALL \
             -DfailWhenNoMutations=true \
-            -DoutputFormats=CSV,HTML \
+            -DoutputFormats=CSV,HTML,XML \
             org.pitest:pitest-maven:mutationCoverage
 
-      - name: Compute mutation score from mutations.csv
+      - name: Extract current PIT score
+        id: current
         run: |
-          set -e
-          mkdir -p pit-current
+          SCORE=$(grep -oPm1 "(?<=<score>)[^<]+" core/target/pit-reports/*/mutation.xml || echo 0)
+          echo "current_score=$SCORE" >> $GITHUB_OUTPUT
+          echo "Current mutation score: $SCORE"
 
-          FILE=$(find core -name "mutations.csv" | head -n 1)
-          echo "Found mutations.csv at: $FILE"
-
-          if [ ! -f "$FILE" ]; then
-            echo "::warning::mutations.csv not found"
-            echo "TOTAL=0" > pit-current/pit-score.txt
-            echo "KILLED=0" >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            exit 0
-          fi
-
-          cp "$FILE" pit-current/mutations.csv
-          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
-          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
-          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
-          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
-          cat pit-current/pit-score.txt
-
-      - name: Compare mutation score with previous
+      - name: Get previous PIT score
+        id: previous
         run: |
-          NEW_SCORE=$(grep LINE_COVERAGE pit-current/pit-score.txt | cut -d '=' -f 2)
-          if [ -f pit-previous/pit-score.txt ]; then
-            OLD_SCORE=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d '=' -f 2)
-            echo "Previous score: $OLD_SCORE%"
-            echo "Current score:  $NEW_SCORE%"
-            awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
-              if (new < old) {
-                print "::error::Mutation score dropped from " old "% to " new "%"
-                exit 1
-              } else {
-                print "✅ Mutation score is stable or improved."
-              }
-            }'
+          if [ -f mutation_score.txt ]; then
+            PREV=$(cat mutation_score.txt)
           else
-            echo "::warning::No previous score found. Skipping comparison."
+            PREV=0
+          fi
+          echo "previous_score=$PREV" >> $GITHUB_OUTPUT
+          echo "Previous mutation score: $PREV"
+
+      - name: Compare scores
+        run: |
+          CUR=${{ steps.current.outputs.current_score }}
+          PREV=${{ steps.previous.outputs.previous_score }}
+
+          echo "🔍 Comparing mutation scores..."
+          echo "Previous: $PREV"
+          echo "Current:  $CUR"
+
+          if [ "$CUR" -lt "$PREV" ]; then
+            echo "::error::Mutation score decreased! ($CUR < $PREV)"
+            exit 1
           fi
 
-      - name: Copy score to pit-previous for caching
-        run: |
-          mkdir -p pit-previous
-          cp pit-current/pit-score.txt pit-previous/pit-score.txt
+          echo "Mutation score OK or improved ($CUR ≥ $PREV)"
 
-      - name: Save current score to cache
-        uses: actions/cache@v4
-        with:
-          path: pit-previous/pit-score.txt
-          key: pit-score-${{ github.ref }}
-
+      - name: Save new mutation score
+        if: success()
+        run: echo "${{ steps.current.outputs.current_score }}" > mutation_score.txt
 
       - name: Upload PIT report
         uses: actions/upload-artifact@v4
