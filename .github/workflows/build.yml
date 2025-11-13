@@ -41,6 +41,13 @@ jobs:
           distribution: temurin
           cache: maven
 
+      - name: Download previous mutation score
+        uses: actions/download-artifact@v4
+        with:
+          name: pit-score
+          path: pit-previous
+        continue-on-error: true
+
       - name: Run PIT mutation tests
         run: |
           mvn -B -pl core test
@@ -86,8 +93,33 @@ jobs:
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
           fi
           cat pit-current/pit-score.txt
-      
 
-    
+      - name: Compare mutation score with previous
+        run: |
+          NEW_SCORE=$(grep LINE_COVERAGE pit-current/pit-score.txt | cut -d '=' -f 2)
+          OLD_SCORE=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d '=' -f 2 || echo "0.00")
 
+          echo "Previous score: $OLD_SCORE%"
+          echo "Current score:  $NEW_SCORE%"
 
+          awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
+            if (new < old) {
+              print "::error::Mutation score dropped from " old "% to " new "%"
+              exit 1
+            } else {
+              print "✅ Mutation score is stable or improved."
+              exit 0
+            }
+          }'
+
+      - name: Upload mutation score
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-score
+          path: pit-current/pit-score.txt
+
+      - name: Upload PIT report
+        uses: actions/upload-artifact@v4
+        with:
+          name: pit-report
+          path: core/target/pit-reports
