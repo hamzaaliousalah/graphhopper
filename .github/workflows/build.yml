@@ -21,13 +21,6 @@ jobs:
         run: |
           mvn -B -pl core -am clean install -DskipTests
 
-      - name: List compiled classes
-        run: |
-          echo "Classes in core module:"
-          find core/target/classes -name "*.class"
-          echo "Test classes in core module:"
-          find core/target/test-classes -name "*.class"
-
   pit-verify:
     needs: build-core
     runs-on: ubuntu-latest
@@ -41,12 +34,13 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Download previous mutation score
-        uses: actions/download-artifact@v4
+      - name: Restore previous mutation score from cache
+        uses: actions/cache@v4
         with:
-          name: pit-score
-          path: pit-previous
-        continue-on-error: true
+          path: pit-previous/pit-score.txt
+          key: pit-score-${{ github.ref }}
+          restore-keys: |
+            pit-score-
 
       - name: Run PIT mutation tests
         run: |
@@ -78,7 +72,6 @@ jobs:
             echo "TOTAL=0" > pit-current/pit-score.txt
             echo "KILLED=0" >> pit-current/pit-score.txt
             echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-            cat pit-current/pit-score.txt
             exit 0
           fi
 
@@ -87,39 +80,36 @@ jobs:
           KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
           echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
           echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          if [ "$TOTAL" -gt 0 ]; then
-            awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
-          else
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
-          fi
+          awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
           cat pit-current/pit-score.txt
 
       - name: Compare mutation score with previous
         run: |
           NEW_SCORE=$(grep LINE_COVERAGE pit-current/pit-score.txt | cut -d '=' -f 2)
-          OLD_SCORE=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d '=' -f 2 || echo "0.00")
+          if [ -f pit-previous/pit-score.txt ]; then
+            OLD_SCORE=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d '=' -f 2)
+            echo "Previous score: $OLD_SCORE%"
+            echo "Current score:  $NEW_SCORE%"
+            awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
+              if (new < old) {
+                print "::error::Mutation score dropped from " old "% to " new "%"
+                exit 1
+              } else {
+                print "✅ Mutation score is stable or improved."
+              }
+            }'
+          else
+            echo "::warning::No previous score found. Skipping comparison."
+          fi
 
-          echo "Previous score: $OLD_SCORE%"
-          echo "Current score:  $NEW_SCORE%"
-
-          awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
-            if (new < old) {
-              print "::error::Mutation score dropped from " old "% to " new "%"
-              exit 1
-            } else {
-              print "✅ Mutation score is stable or improved."
-              exit 0
-            }
-          }'
-
-      - name: Upload mutation score
-        uses: actions/upload-artifact@v4
+      - name: Save current score to cache
+        uses: actions/cache@v4
         with:
-          name: pit-score
           path: pit-current/pit-score.txt
+          key: pit-score-${{ github.ref }}
 
       - name: Upload PIT report
         uses: actions/upload-artifact@v4
         with:
           name: pit-report
-          path: core/target/pit-reports
+          path: core/target/pit-reports/**
