@@ -37,7 +37,7 @@ jobs:
       - name: Restore previous mutation score from cache
         uses: actions/cache@v4
         with:
-          path: pit-previous/pit-score.txt
+          path: .mutation-previous/.mutation-score.txt
           key: pit-score-${{ github.ref }}
           restore-keys: |
             pit-score-
@@ -62,32 +62,33 @@ jobs:
       - name: Compute mutation score from mutations.csv
         run: |
           set -e
-          mkdir -p pit-current
+          mkdir -p .mutation-current
 
           FILE=$(find core -name "mutations.csv" | head -n 1)
           echo "Found mutations.csv at: $FILE"
 
           if [ ! -f "$FILE" ]; then
             echo "::warning::mutations.csv not found"
-            echo "TOTAL=0" > pit-current/pit-score.txt
-            echo "KILLED=0" >> pit-current/pit-score.txt
-            echo "LINE_COVERAGE=0.00" >> pit-current/pit-score.txt
+            echo "MUTATION_SCORE=0.00" > .mutation-current/.mutation-score.txt
             exit 0
           fi
 
-          cp "$FILE" pit-current/mutations.csv
-          TOTAL=$(tail -n +2 pit-current/mutations.csv | wc -l | tr -d ' ')
-          KILLED=$(grep -c ',KILLED,' pit-current/mutations.csv || true)
-          echo "TOTAL=$TOTAL" > pit-current/pit-score.txt
-          echo "KILLED=$KILLED" >> pit-current/pit-score.txt
-          awk -v k="$KILLED" -v t="$TOTAL" 'BEGIN{printf("LINE_COVERAGE=%.2f\n",(k/t)*100)}' >> pit-current/pit-score.txt
-          cat pit-current/pit-score.txt
+          cp "$FILE" .mutation-current/mutations.csv
+
+          TESTED=$(grep -vc ',NO_COVERAGE,' .mutation-current/mutations.csv)
+          KILLED=$(grep -c ',KILLED,' .mutation-current/mutations.csv)
+
+          echo "TESTED=$TESTED"
+          echo "KILLED=$KILLED"
+
+          awk -v k="$KILLED" -v t="$TESTED" 'BEGIN{printf("MUTATION_SCORE=%.2f\n",(k/t)*100)}' > .mutation-current/.mutation-score.txt
+          cat .mutation-current/.mutation-score.txt
 
       - name: Compare mutation score with previous
         run: |
-          NEW_SCORE=$(grep LINE_COVERAGE pit-current/pit-score.txt | cut -d '=' -f 2)
-          if [ -f pit-previous/pit-score.txt ]; then
-            OLD_SCORE=$(grep LINE_COVERAGE pit-previous/pit-score.txt | cut -d '=' -f 2)
+          NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
+          if [ -f .mutation-previous/.mutation-score.txt ]; then
+            OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
             echo "Previous score: $OLD_SCORE%"
             echo "Current score:  $NEW_SCORE%"
             awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
@@ -102,21 +103,19 @@ jobs:
             echo "::warning::No previous score found. Skipping comparison."
           fi
 
-      - name: Copy score to pit-previous for caching
+      - name: Copy score to .mutation-previous for caching
         run: |
-          mkdir -p pit-previous
-          cp pit-current/pit-score.txt pit-previous/pit-score.txt
+          mkdir -p .mutation-previous
+          cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
 
       - name: Save current score to cache
         uses: actions/cache@v4
         with:
-          path: pit-previous/pit-score.txt
+          path: .mutation-previous/.mutation-score.txt
           key: pit-score-${{ github.ref }}
-
 
       - name: Upload PIT report
         uses: actions/upload-artifact@v4
         with:
           name: pit-report
           path: core/target/pit-reports/**
-
