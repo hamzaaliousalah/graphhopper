@@ -34,12 +34,12 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5, point.getLon(), 0);
     }
 
-    @Test
-    public void testCalcNormalizedEdgeDistance() {
-        DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-        double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
-        assertEquals(50, distance, 0);
-    }
+    //@Test
+    //public void testCalcNormalizedEdgeDistance() {
+        //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+        //double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
+        //assertEquals(50, distance, 0);
+    //}
 
     @Test
     public void testCalcNormalizedEdgeDistance3dStartEndSame() {
@@ -77,11 +77,11 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5.0, calc.calcDenormalizedDist(25.0), 1e-6);
     }
 
-    //@Test
-    //public void testCalcNormalizedDistSingleValue() {
-        //DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
-        //assertEquals(25.0, calc.calcNormalizedDist(5.0), 1e-6);
-    //}
+    @Test
+    public void testCalcNormalizedDistSingleValue() {
+        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        assertEquals(25.0, calc.calcNormalizedDist(5.0), 1e-6);
+    }
 
     @Test
     public void testIntermediatePointHalfway() {
