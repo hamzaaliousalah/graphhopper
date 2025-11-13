@@ -102,12 +102,17 @@ jobs:
             echo "::warning::No previous score found. Skipping comparison."
           fi
 
-      - name: Save current score to cache
-        if: always()
+      - name: Copy score to pit-previous for caching
         run: |
           mkdir -p pit-previous
           cp pit-current/pit-score.txt pit-previous/pit-score.txt
-      
+
+      - name: Save current score to cache
+        uses: actions/cache@v4
+        with:
+          path: pit-previous/pit-score.txt
+          key: pit-score-${{ github.ref }}
+
 
       - name: Upload PIT report
         uses: actions/upload-artifact@v4
