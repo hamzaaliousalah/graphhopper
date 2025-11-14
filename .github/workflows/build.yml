@@ -96,15 +96,15 @@ jobs:
 
             
             
-            if ($NEW_SCORE < $OLD_SCORE) {
+            if [$NEW_SCORE -lt $OLD_SCORE]; then
               print "::error::Mutation score dropped from " old "% to " new "%"
               exit 1
-            } else {
+            else 
               print "Mutation score is stable or improved."
               echo"$NEW_SCORE%" > .mutation-previous/.mutation-score.txt
           
           
-            }
+            
            
             
 
