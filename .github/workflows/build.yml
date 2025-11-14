@@ -109,7 +109,7 @@ jobs:
             exit 1
           fi
           
-          echo "MUTATION_SCORE=$NEW_SCORE" >  .mutation-previous/.mutation-score.txt
+          echo "MUTATION_SCORE=$NEW_SCORE" > .mutation-previous/.mutation-score.txt
           OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
