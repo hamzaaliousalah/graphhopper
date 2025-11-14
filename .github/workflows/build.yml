@@ -98,7 +98,7 @@ jobs:
             OLD_SCORE=0
           fi
           
-          if ["$NEW_SCORE" -lt "$OLD_SCORE"]; then
+          if [ "$NEW_SCORE" -lt "$OLD_SCORE" ]; then
             echo "Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
             exit 1
           fi
