@@ -103,7 +103,6 @@ jobs:
           
           else
             echo "::warning::No previous score found. Skipping comparison."
-            cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
           fi
       
       
