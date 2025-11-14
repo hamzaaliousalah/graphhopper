@@ -42,7 +42,7 @@ jobs:
           workflow: build.yml
           workflow_conclusion: success
           name: pit-score
-          path: .mutation-previous/
+          path: mutation-previous/
         continue-on-error: true
 
       - name: Run PIT mutation tests
@@ -91,11 +91,11 @@ jobs:
         run: |
           NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
           
-          mkdir -p .mutation-previous
+          mkdir -p mutation-previous
 
 
-          if [ -f .mutation-previous/.mutation-score.txt ]; then
-            OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
+          if [ -f mutation-previous/previous-score.txt ]; then
+            OLD_SCORE=$(grep MUTATION_SCORE mutation-previous/previous-score.txt | cut -d '=' -f 2)
 
             echo "Previous score: $OLD_SCORE%"
             echo "Current score:  $NEW_SCORE%"   
@@ -109,7 +109,7 @@ jobs:
             exit 1
           fi
           
-          echo "MUTATION_SCORE=$NEW_SCORE" > .mutation-previous/.mutation-score.txt
+          echo "MUTATION_SCORE=$NEW_SCORE" > ./previous-score.txt
           OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
@@ -118,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pit-score
-          path: .mutation-previous/.mutation-score.txt
+          path: ./previous-score.txt
 
 
 
