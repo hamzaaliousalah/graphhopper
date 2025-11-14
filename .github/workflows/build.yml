@@ -1,4 +1,4 @@
-name: Build and Test (with PIT)
+name: Build and Test
 
 on:
   push:
@@ -103,6 +103,8 @@ jobs:
             exit 1
           fi
           echo "$NEW_SCORE" > .mutation-previous/.mutation-score.txt
+          OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
+          echo "le nouvel prev score est $OLD_SCORE"
 
       - name: Save baseline score to cache
         uses: actions/cache@v4
