@@ -34,13 +34,15 @@ jobs:
           distribution: temurin
           cache: maven
 
-      - name: Restore previous mutation score from cache
-        uses: actions/cache@v4
+      - name: Download the artefact
+        id: download the artefact
+        uses: dawidd6/action-download-artifact@v11
         with:
-          path: .mutation-previous/.mutation-score.txt
-          key: pit-score-${{ github.ref }}
-          restore-keys: |
-            pit-score-
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          workflow: build.yml
+          workflow_conclusion: success
+          name: pit-score-${{ github.ref }}
+          path: ./mutation-previous
 
       - name: Run PIT mutation tests
         run: |
@@ -109,10 +111,11 @@ jobs:
           echo "le nouvel prev score est $OLD_SCORE"
 
 
-      - name: Save baseline score to cache
-        uses: actions/cache@v4
+      - name: upload an artefact
+        uses: actions/upload-artifact@v4
         with:
-          path: .mutation-previous/.mutation-score.txt
-          key: pit-score-${{ github.ref }}
+          name: pit-score-${{ github.ref }}
+          path: ./mutation-previous/.mutation-score.txt
+
 
 
