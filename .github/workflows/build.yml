@@ -98,11 +98,14 @@ jobs:
             OLD_SCORE=0
           fi
           
-          if [ "$NEW_SCORE" -lt "$OLD_SCORE" ]; then
-            echo "Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
+         # comparaison de nombres décimaux (float)
+          if (( $(echo "$NEW_SCORE < $OLD_SCORE" | bc -l) )); then
+            echo "::error::Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
             exit 1
           fi
-          echo "$NEW_SCORE" > .mutation-previous/.mutation-score.txt
+          
+          # mise à jour de la baseline
+          echo "MUTATION_SCORE=$NEW_SCORE" > .mutation-previous/.mutation-score.txt
           OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
