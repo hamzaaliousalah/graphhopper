@@ -41,7 +41,7 @@ jobs:
           github_token: ${{ secrets.GITHUB_TOKEN }}
           workflow: build.yml
           workflow_conclusion: success
-          name: pit-score-${{ github.ref }}
+          name: pit-score
           path: ./mutation-previous
 
       - name: Run PIT mutation tests
@@ -114,7 +114,7 @@ jobs:
       - name: upload an artefact
         uses: actions/upload-artifact@v4
         with:
-          name: pit-score-${{ github.ref }}
+          name: pit-score
           path: ./mutation-previous/.mutation-score.txt
 
 
