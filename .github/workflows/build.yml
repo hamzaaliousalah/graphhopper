@@ -101,9 +101,12 @@ jobs:
                 exit 1
               } else {
                 print "Mutation score is stable or improved."
+                echo"$NEW_SCORE%" > .mutation-previous/.mutation-score.txt
+          
+          
               }
             }'
-            cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
+            
 
           else
             echo "::warning::No previous score found. Skipping comparison."
