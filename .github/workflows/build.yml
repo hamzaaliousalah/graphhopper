@@ -90,6 +90,9 @@ jobs:
       - name: Compare mutation score with previous
         run: |
           NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
+          
+          mkdir -p .mutation-previous
+
 
           if [ -f .mutation-previous/.mutation-score.txt ]; then
             OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
