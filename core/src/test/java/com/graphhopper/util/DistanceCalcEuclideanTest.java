@@ -34,7 +34,7 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5, point.getLon(), 0);
     }
 
-   // @Test
+   //  @Test
    // public void testCalcNormalizedEdgeDistance() {
       //  DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
       //  double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
