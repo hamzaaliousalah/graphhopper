@@ -96,26 +96,22 @@ jobs:
                 print "::error::Mutation score dropped from " old "% to " new "%"
                 exit 1
               } else {
-                print "✅ Mutation score is stable or improved."
+                print "Mutation score is stable or improved."
               }
             }'
           else
             echo "::warning::No previous score found. Skipping comparison."
           fi
 
-      - name: Copy score to .mutation-previous for caching
+      - name: Update baseline mutation score
         run: |
           mkdir -p .mutation-previous
           cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
 
-      - name: Save current score to cache
+      - name: Save baseline score to cache
         uses: actions/cache@v4
         with:
           path: .mutation-previous/.mutation-score.txt
           key: pit-score-${{ github.ref }}
 
-      - name: Upload PIT report
-        uses: actions/upload-artifact@v4
-        with:
-          name: pit-report
-          path: core/target/pit-reports/**
+
