@@ -97,8 +97,7 @@ jobs:
             echo "::warning::No previous score found. Skipping comparison."
             OLD_SCORE=0
           fi
-          
-         # comparaison de nombres décimaux (float)
+        
           if (( $(echo "$NEW_SCORE < $OLD_SCORE" | bc -l) )); then
             echo "::error::Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
             exit 1
