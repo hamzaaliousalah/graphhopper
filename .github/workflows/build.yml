@@ -109,7 +109,7 @@ jobs:
             exit 1
           fi
           
-          echo "MUTATION_SCORE=$NEW_SCORE" > ./.mutation-score.txt
+          echo "MUTATION_SCORE=$NEW_SCORE" >  .mutation-previous/.mutation-score.txt
           OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
@@ -118,7 +118,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: pit-score
-          path: ./.mutation-score.txt
+          path: .mutation-previous/.mutation-score.txt
 
 
 
