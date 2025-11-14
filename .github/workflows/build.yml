@@ -42,7 +42,7 @@ jobs:
           workflow: build.yml
           workflow_conclusion: success
           name: pit-score
-          path: ./mutation-previous
+          path: .mutation-previous
         continue-on-error: true
 
       - name: Run PIT mutation tests
@@ -106,7 +106,6 @@ jobs:
             exit 1
           fi
           
-          # mise à jour de la baseline
           echo "MUTATION_SCORE=$NEW_SCORE" > .mutation-previous/.mutation-score.txt
           OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
