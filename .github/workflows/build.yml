@@ -43,6 +43,7 @@ jobs:
           workflow_conclusion: success
           name: pit-score
           path: ./mutation-previous
+        continue-on-error: true
 
       - name: Run PIT mutation tests
         run: |
