@@ -87,23 +87,30 @@ jobs:
       - name: Compare mutation score with previous
         run: |
           NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
+
           if [ -f .mutation-previous/.mutation-score.txt ]; then
             OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
+
             echo "Previous score: $OLD_SCORE%"
             echo "Current score:  $NEW_SCORE%"
+
+            # Compare dans awk (mais sans cp ici)
             awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
               if (new < old) {
                 print "::error::Mutation score dropped from " old "% to " new "%"
                 exit 1
               } else {
                 print "Mutation score is stable or improved."
-                cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
               }
             }'
+            cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
+
           else
             echo "::warning::No previous score found. Skipping comparison."
+            cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
           fi
-
+      
+      
       
 
       - name: Save baseline score to cache
