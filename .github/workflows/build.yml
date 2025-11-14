@@ -93,8 +93,6 @@ jobs:
 
             echo "Previous score: $OLD_SCORE%"
             echo "Current score:  $NEW_SCORE%"
-
-            
             
             if [$NEW_SCORE -lt $OLD_SCORE]; then
               print "::error::Mutation score dropped from " old "% to " new "%"
@@ -102,12 +100,8 @@ jobs:
             else 
               print "Mutation score is stable or improved."
               echo"$NEW_SCORE%" > .mutation-previous/.mutation-score.txt
+            fi
           
-          
-            
-           
-            
-
           else
             echo "::warning::No previous score found. Skipping comparison."
             cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
