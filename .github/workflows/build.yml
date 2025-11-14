@@ -112,10 +112,9 @@ jobs:
             awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
               if (new >= old) {
                 system("cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt")
+                cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
               }
-            }'
-          else
-            cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
+            }'            
           fi
 
       - name: Save baseline score to cache
