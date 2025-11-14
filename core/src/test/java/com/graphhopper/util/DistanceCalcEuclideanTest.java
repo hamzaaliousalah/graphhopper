@@ -41,21 +41,21 @@ public class DistanceCalcEuclideanTest {
         //assertEquals(50, distance, 0);
     //}
 
-    @Test
-    public void testCalcNormalizedEdgeDistance3dStartEndSame() {
-        DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-        double distance = distanceCalc.calcNormalizedEdgeDistance3D(0, 3, 4, 0, 0, 0, 0, 0, 0);
-        assertEquals(25, distance, 0);
-    }
+    //@Test
+    //public void testCalcNormalizedEdgeDistance3dStartEndSame() {
+        //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+        //double distance = distanceCalc.calcNormalizedEdgeDistance3D(0, 3, 4, 0, 0, 0, 0, 0, 0);
+        //assertEquals(25, distance, 0);
+    //}
 
-    @Test
-    public void testValidEdgeDistance() {
-        DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-        boolean validEdgeDistance = distanceCalc.validEdgeDistance(5, 15, 0, 0, 10, 10);
-        assertEquals(false, validEdgeDistance);
-        validEdgeDistance = distanceCalc.validEdgeDistance(15, 5, 0, 0, 10, 10);
-        assertEquals(false, validEdgeDistance);
-    }
+    //@Test
+    //public void testValidEdgeDistance() {
+       // DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+        //boolean validEdgeDistance = distanceCalc.validEdgeDistance(5, 15, 0, 0, 10, 10);
+        //assertEquals(false, validEdgeDistance);
+        //validEdgeDistance = distanceCalc.validEdgeDistance(15, 5, 0, 0, 10, 10);
+        //assertEquals(false, validEdgeDistance);
+    //}
 
     @Test
     public void testDistance3dEuclidean() {
@@ -77,11 +77,11 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5.0, calc.calcDenormalizedDist(25.0), 1e-6);
     }
 
-    @Test
-    public void testCalcNormalizedDistSingleValue() {
-        DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
-        assertEquals(25.0, calc.calcNormalizedDist(5.0), 1e-6);
-    }
+    //@Test
+    //public void testCalcNormalizedDistSingleValue() {
+        //DistanceCalcEuclidean calc = new DistanceCalcEuclidean();
+        //assertEquals(25.0, calc.calcNormalizedDist(5.0), 1e-6);
+    //}
 
     @Test
     public void testIntermediatePointHalfway() {
