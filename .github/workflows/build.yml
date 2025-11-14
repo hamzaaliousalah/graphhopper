@@ -35,7 +35,7 @@ jobs:
           cache: maven
 
       - name: Download the artefact
-        id: download the artefact
+        id: download_artefact
         uses: dawidd6/action-download-artifact@v11
         with:
           github_token: ${{ secrets.GITHUB_TOKEN }}
