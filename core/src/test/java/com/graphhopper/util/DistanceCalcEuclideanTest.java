@@ -41,6 +41,7 @@ public class DistanceCalcEuclideanTest {
         assertEquals(50, distance, 0);
     }
 
+
     @Test
     public void testCalcNormalizedEdgeDistance3dStartEndSame() {
         DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
