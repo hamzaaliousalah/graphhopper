@@ -97,25 +97,14 @@ jobs:
                 exit 1
               } else {
                 print "Mutation score is stable or improved."
+                cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
               }
             }'
           else
             echo "::warning::No previous score found. Skipping comparison."
           fi
 
-      - name: Update baseline mutation score
-        run: |
-          mkdir -p .mutation-previous
-          if [ -f .mutation-previous/.mutation-score.txt ]; then
-            OLD_SCORE=$(grep MUTATION_SCORE .mutation-previous/.mutation-score.txt | cut -d '=' -f 2)
-            NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
-            awk -v new="$NEW_SCORE" -v old="$OLD_SCORE" 'BEGIN {
-              if (new >= old) {
-                system("cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt")
-                cp .mutation-current/.mutation-score.txt .mutation-previous/.mutation-score.txt
-              }
-            }'            
-          fi
+      
 
       - name: Save baseline score to cache
         uses: actions/cache@v4
