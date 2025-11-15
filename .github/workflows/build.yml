@@ -120,5 +120,13 @@ jobs:
           name: pit-score
           path: ./previous-score.txt
 
+      - name: Rick Roll
+        if: failure()
+        uses: TejasvOnly/random-rickroll@v1.0
+        with:
+          percentage: 100
+          message: "Mutation tests failed. Never gonna give you up!"
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
 
 
