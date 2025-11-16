@@ -3,15 +3,14 @@ name: Build and Test
 on:
   push:
   pull_request:
-  issues:
-    types: [opened]
+
 jobs:
   build-core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup JDK 21
+      - name: Setup JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -28,7 +27,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Setup JDK 21
+      - name: Setup JDK 21 (Temurin)
         uses: actions/setup-java@v4
         with:
           java-version: '21'
@@ -104,7 +103,7 @@ jobs:
             echo "::warning::No previous score found. Skipping comparison."
             OLD_SCORE=0
           fi
-        
+          
           if (( $(echo "$NEW_SCORE < $OLD_SCORE" | bc -l) )); then
             echo "::error::Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
             exit 1
@@ -114,19 +113,9 @@ jobs:
           OLD_SCORE=$(grep MUTATION_SCORE mutation-previous/previous-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
+
       - name: upload an artefact
         uses: actions/upload-artifact@v4
         with:
           name: pit-score
           path: ./previous-score.txt
-
-  rickroll:
-    needs: pit-verify
-    if: failure()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Rick Roll
-        run: |
-          echo "Never gonna give you up!"
-          echo "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          
