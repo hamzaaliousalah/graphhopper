@@ -124,12 +124,9 @@ jobs:
     needs: pit-verify
     if: failure()
     runs-on: ubuntu-latest
-    permissions:
-      issues: write
     steps:
       - name: Rick Roll
-        uses: TejasvOnly/random-rickroll@v1.0
-        with:
-          percentage: 100
-          message: "Never gonna give you up!"
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "Never gonna give you up!"
+          echo "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+          
