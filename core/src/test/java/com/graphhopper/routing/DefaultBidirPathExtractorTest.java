@@ -27,6 +27,9 @@ import com.graphhopper.storage.BaseGraph;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.TurnCostStorage;
 import org.junit.jupiter.api.Test;
+import com.graphhopper.routing.weighting.Weighting;
+import com.graphhopper.util.EdgeIteratorState;
+import static org.mockito.Mockito.*;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
@@ -76,4 +79,93 @@ public class DefaultBidirPathExtractorTest {
         assertEquals(8, p.getWeight(), 1e-4);
         assertEquals(8000, p.getTime(), 1.e-6);
     }
+    /**
+     * Petite sous-classe pour exposer les méthodes protégées onEdge/onMeetingPoint
+     * sans modifier la classe de production.
+     */
+    static class TestExtractor extends DefaultBidirPathExtractor {
+
+        TestExtractor(Graph graph, Weighting weighting) {
+            super(graph, weighting);
+        }
+
+        void callOnEdge(int edge, int adjNode, boolean reverse, int prevOrNextEdge) {
+            onEdge(edge, adjNode, reverse, prevOrNextEdge);
+        }
+
+        void callOnMeetingPoint(int inEdge, int viaNode, int outEdge) {
+            onMeetingPoint(inEdge, viaNode, outEdge);
+        }
+    }
+
+    /**
+     * Test mock : vérifie que onEdge(...) utilise bien Graph et Weighting
+     * pour construire le Path (distance + temps + edges).
+     *
+     * Mocks :
+     *  - Graph
+     *  - Weighting
+     *  - EdgeIteratorState
+     */
+    @Test
+    public void testOnEdgeWithMocks() {
+        Graph mockGraph = mock(Graph.class);
+        Weighting mockWeighting = mock(Weighting.class);
+        EdgeIteratorState mockEdge = mock(EdgeIteratorState.class);
+
+        // Quand on cherche l'arête (edge=42, adjNode=7), on récupère notre mock
+        when(mockGraph.getEdgeIteratorState(42, 7)).thenReturn(mockEdge);
+        // Distance simulée
+        when(mockEdge.getDistance()).thenReturn(15.0);
+        // Temps simulé (via GHUtility.calcMillisWithTurnMillis -> calcEdgeMillis + calcTurnMillis)
+        when(mockWeighting.calcEdgeMillis(mockEdge, false)).thenReturn(300L);
+        when(mockWeighting.calcTurnMillis(anyInt(), anyInt(), anyInt())).thenReturn(0L);
+
+        TestExtractor extractor = new TestExtractor(mockGraph, mockWeighting);
+
+        // On appelle la méthode protégée via notre wrapper
+        // NO_EDGE = -1 ici, on n'a pas besoin d'EdgeIterator
+        extractor.callOnEdge(42, 7, false, -1);
+
+        Path path = extractor.path;
+
+        // Vérifie le contenu du Path
+        assertEquals(15.0, path.getDistance(), 1e-3);
+        assertEquals(300L, path.getTime());
+        assertEquals(1, path.getEdges().size());
+        assertEquals(42, path.getEdges().get(0));
+
+        // Vérifie les interactions Mockito
+        verify(mockGraph).getEdgeIteratorState(42, 7);
+        verify(mockEdge).getDistance();
+        verify(mockWeighting).calcEdgeMillis(mockEdge, false);
+    }
+
+    /**
+     * Test mock : vérifie que onMeetingPoint(...) ajoute bien
+     * le temps de virage fourni par Weighting.calcTurnMillis.
+     *
+     * Mocks :
+     *  - Graph (inutile ici mais simulé)
+     *  - Weighting
+     */
+    @Test
+    public void testOnMeetingPointWithMocks() {
+        Graph mockGraph = mock(Graph.class);
+        Weighting mockWeighting = mock(Weighting.class);
+
+        when(mockWeighting.calcTurnMillis(5, 10, 7)).thenReturn(400L);
+
+        TestExtractor extractor = new TestExtractor(mockGraph, mockWeighting);
+
+        // inEdge=5, viaNode=10, outEdge=7 -> tous valides => onMeetingPoint doit appeler calcTurnMillis
+        extractor.callOnMeetingPoint(5, 10, 7);
+
+        Path path = extractor.path;
+
+        assertEquals(400L, path.getTime());
+        verify(mockWeighting).calcTurnMillis(5, 10, 7);
+    }
 }
+
+
