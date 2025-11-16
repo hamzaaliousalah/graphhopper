@@ -5,29 +5,63 @@ on:
   pull_request:
   issues:
     types: [opened]
+
 jobs:
+
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        java-version: [ 24, 25-ea ]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          java-version: ${{ matrix.java-version }}
+          distribution: temurin
+      - name: Cache Maven artifacts
+        uses: actions/cache@v4
+        with:
+          path: ~/.m2/repository
+          key: ${{ runner.os }}-maven-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os }}-maven-
+      - name: Cache node
+        uses: actions/cache@v4
+        with:
+          path: web-bundle/node
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml') }}
+          restore-keys: |
+            ${{ runner.os}}-node-
+      - name: Cache node_modules
+        uses: actions/cache@v4
+        with:
+          path: web-bundle/node_modules
+          key: ${{ runner.os }}-node-${{ hashFiles('**/pom.xml', '**/package.json') }}
+          restore-keys: |
+            ${{ runner.os}}-node_modules-
+      - name: Build ${{ matrix.java-version }}
+        run: mvn -B clean test
+
   build-core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: temurin
           cache: maven
-
       - name: Build core module
-        run: |
-          mvn -B -pl core -am clean install -DskipTests
+        run: mvn -B -pl core -am clean install -DskipTests
 
   pit-verify:
     needs: build-core
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Setup JDK 21
         uses: actions/setup-java@v4
         with:
@@ -67,66 +101,42 @@ jobs:
         run: |
           set -e
           mkdir -p .mutation-current
-
           FILE=$(find core -name "mutations.csv" | head -n 1)
           echo "Found mutations.csv at: $FILE"
-
           if [ ! -f "$FILE" ]; then
             echo "::warning::mutations.csv not found"
             echo "MUTATION_SCORE=0.00" > .mutation-current/.mutation-score.txt
             exit 0
           fi
-
           cp "$FILE" .mutation-current/mutations.csv
-
           TESTED=$(grep -vc ',NO_COVERAGE,' .mutation-current/mutations.csv)
           KILLED=$(grep -c ',KILLED,' .mutation-current/mutations.csv)
-
           echo "TESTED=$TESTED"
           echo "KILLED=$KILLED"
-
           awk -v k="$KILLED" -v t="$TESTED" 'BEGIN{printf("MUTATION_SCORE=%.2f\n",(k/t)*100)}' > .mutation-current/.mutation-score.txt
           cat .mutation-current/.mutation-score.txt
 
       - name: Compare mutation score with previous
         run: |
           NEW_SCORE=$(grep MUTATION_SCORE .mutation-current/.mutation-score.txt | cut -d '=' -f 2)
-          
           mkdir -p mutation-previous
-
-
           if [ -f mutation-previous/previous-score.txt ]; then
             OLD_SCORE=$(grep MUTATION_SCORE mutation-previous/previous-score.txt | cut -d '=' -f 2)
-
             echo "Previous score: $OLD_SCORE%"
             echo "Current score:  $NEW_SCORE%"   
           else
             echo "::warning::No previous score found. Skipping comparison."
             OLD_SCORE=0
           fi
-        
           if (( $(echo "$NEW_SCORE < $OLD_SCORE" | bc -l) )); then
             echo "::error::Mutation score dropped from $OLD_SCORE% to $NEW_SCORE%"
             exit 1
           fi
-          
           echo "MUTATION_SCORE=$NEW_SCORE" > ./previous-score.txt
-          OLD_SCORE=$(grep MUTATION_SCORE mutation-previous/previous-score.txt | cut -d '=' -f 2)
-          echo "le nouvel prev score est $OLD_SCORE"
 
-      - name: upload an artefact
+      - name: Upload artefact
         uses: actions/upload-artifact@v4
         with:
           name: pit-score
           path: ./previous-score.txt
 
-  rickroll:
-    needs: pit-verify
-    if: failure()
-    runs-on: ubuntu-latest
-    steps:
-      - name: Rick Roll
-        run: |
-          echo "Never gonna give you up!"
-          echo "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
-          

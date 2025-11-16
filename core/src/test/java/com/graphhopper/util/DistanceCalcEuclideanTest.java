@@ -144,11 +144,6 @@ public class DistanceCalcEuclideanTest {
 
         assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
     }
-//}
-
-    @Test
-    public void testForceFailure() {
-        assertEquals(1, 2);
-    }
 }
+
 
