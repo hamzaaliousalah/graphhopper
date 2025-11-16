@@ -3,7 +3,8 @@ name: Build and Test
 on:
   push:
   pull_request:
-
+  issues:
+    types: [opened]
 jobs:
   build-core:
     runs-on: ubuntu-latest
@@ -113,20 +114,18 @@ jobs:
           OLD_SCORE=$(grep MUTATION_SCORE mutation-previous/previous-score.txt | cut -d '=' -f 2)
           echo "le nouvel prev score est $OLD_SCORE"
 
-
       - name: upload an artefact
         uses: actions/upload-artifact@v4
         with:
           name: pit-score
           path: ./previous-score.txt
 
+  rickroll:
+    runs-on: ubuntu-latest
+    steps:
       - name: Rick Roll
-        if: failure()
         uses: TejasvOnly/random-rickroll@v1.0
         with:
           percentage: 100
-          message: "Mutation tests failed. Never gonna give you up!"
+          message: "Never gonna give you up!"
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-
-
