@@ -36,9 +36,9 @@ public class DistanceCalcEuclideanTest {
 
     //@Test
     //public void testCalcNormalizedEdgeDistance() {
-        //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-        //double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
-        //assertEquals(50, distance, 0);
+    //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+    //double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
+    //assertEquals(50, distance, 0);
     //}
 
 
@@ -144,4 +144,11 @@ public class DistanceCalcEuclideanTest {
 
         assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
     }
+//}
+
+    @Test
+    public void testForceFailure() {
+        assertEquals(1, 2);
+    }
 }
+

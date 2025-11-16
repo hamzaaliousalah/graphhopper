@@ -121,7 +121,8 @@ jobs:
           path: ./previous-score.txt
 
   rickroll:
-    if: ${{ github.event_name == 'issues' }}
+    needs: pit-verify
+    if: failure()
     runs-on: ubuntu-latest
     permissions:
       issues: write
