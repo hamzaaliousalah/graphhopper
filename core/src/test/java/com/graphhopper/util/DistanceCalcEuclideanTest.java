@@ -34,12 +34,12 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5, point.getLon(), 0);
     }
 
-    //@Test
-    //public void testCalcNormalizedEdgeDistance() {
-    //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-    //double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
-    //assertEquals(50, distance, 0);
-    //}
+    @Test
+    public void testCalcNormalizedEdgeDistance() {
+        DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+        double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
+        assertEquals(50, distance, 0);
+    }
 
 
     @Test
