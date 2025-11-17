@@ -144,6 +144,12 @@ public class DistanceCalcEuclideanTest {
 
         assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
     }
+
+    // test qui échoue pour vérifier le bon fonctionnement de rickroll
+    @Test
+    public void testRickroll() {
+        assertEquals(1, 2);
+    }
 }
 
 
