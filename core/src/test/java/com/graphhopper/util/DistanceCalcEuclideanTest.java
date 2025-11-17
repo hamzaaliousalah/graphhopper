@@ -34,12 +34,12 @@ public class DistanceCalcEuclideanTest {
         assertEquals(5, point.getLon(), 0);
     }
 
-    //@Test
-    //public void testCalcNormalizedEdgeDistance() {
-    //DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
-    //double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
-    //assertEquals(50, distance, 0);
-    //}
+    @Test
+    public void testCalcNormalizedEdgeDistance() {
+    DistanceCalcEuclidean distanceCalc = new DistanceCalcEuclidean();
+    double distance = distanceCalc.calcNormalizedEdgeDistance(0, 10, 0, 0, 10, 10);
+    assertEquals(50, distance, 0);
+    }
 
 
     @Test
@@ -143,14 +143,6 @@ public class DistanceCalcEuclideanTest {
         double dist = calc.calcDist3D(lat1, lon1, ele1, lat2, lon2, ele2);
 
         assertEquals(true, dist >= 0); // vérifie si la distance est positive ou nulle
-    }
-
-
-    // Test qui échoue pour vérifier le bon fonctionnement de rickroll
-
-    @Test
-    public void testRickroll() {
-        assertEquals(1, 2);
     }
 }
 
