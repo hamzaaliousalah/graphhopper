@@ -11,76 +11,59 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 /**
- * Tests de DefaultWeightingFactory utilisant des mocks Mockito.
- * Tâche 3 : au moins 2 classes simulées avec des mocks.
+ * Tests de la classe DefaultWeightingFactory avec des mocks mockito.
  */
 public class DefaultWeightingFactoryTest {
 
     /**
-     * Cas 1 : on simule un profil avec weighting="shortest".
-     * On vérifie que la factory lève bien IllegalArgumentException,
-     * en utilisant des dépendances simulées (BaseGraph, EncodingManager, Profile).
+     * Vérifie qu'un profil avec weighting = "shortest" provoque une IllegalArgumentException.
      */
     @Test
-    public void testCreateWeighting_InvalidShortestWeighting_UsingMocks() {
-        // Dépendances simulées
-        BaseGraph mockGraph = mock(BaseGraph.class);
-        EncodingManager mockEncoding = mock(EncodingManager.class);
-        Profile mockProfile = mock(Profile.class);
+    public void testShortestWeightingThrows() {
+        BaseGraph graph = mock(BaseGraph.class);
+        EncodingManager encoding = mock(EncodingManager.class);
+        Profile profile = mock(Profile.class);
 
-        // Profil simulé : aucun turn-cost, weighting=shortest
-        when(mockProfile.getHints()).thenReturn(new PMap());
-        when(mockProfile.hasTurnCosts()).thenReturn(false); // -> NO_TURN_COST_PROVIDER
-        when(mockProfile.getWeighting()).thenReturn("shortest");
-        when(mockProfile.getName()).thenReturn("car");
+        when(profile.getHints()).thenReturn(new PMap());
+        when(profile.hasTurnCosts()).thenReturn(false);
+        when(profile.getWeighting()).thenReturn("shortest");
+        when(profile.getName()).thenReturn("car");
 
-        // Hints de la requête (réel, ce n’est pas un problème)
-        PMap requestHints = new PMap();
-
-        DefaultWeightingFactory factory = new DefaultWeightingFactory(mockGraph, mockEncoding);
+        DefaultWeightingFactory factory = new DefaultWeightingFactory(graph, encoding);
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.createWeighting(mockProfile, requestHints, false)
+                () -> factory.createWeighting(profile, new PMap(), false)
         );
 
-        // On vérifie qu'on tombe bien dans le message "shortest interdit"
         assertTrue(ex.getMessage().contains("weighting=shortest"));
     }
 
     /**
-     * Cas 2 : on simule un profil avec turn-costs activés, mais sans
-     * encodage de restrictions de virage dans l'EncodingManager.
-     *
-     * On vérifie que la factory lève IllegalArgumentException :
-     * "Cannot find turn restriction encoded value for car".
+     * Vérifie qu'un profil avec turn-costs activés mais sans encodage
+     * de restrictions de virage lève une IllegalArgumentException.
      */
     @Test
-    public void testCreateWeighting_MissingTurnRestrictionEncodedValue_UsingMocks() {
-        BaseGraph mockGraph = mock(BaseGraph.class);
-        EncodingManager mockEncoding = mock(EncodingManager.class);
-        Profile mockProfile = mock(Profile.class);
+    public void testMissingTurnRestrictionThrows() {
+        BaseGraph graph = mock(BaseGraph.class);
+        EncodingManager encoding = mock(EncodingManager.class);
+        Profile profile = mock(Profile.class);
 
-        // Profil simulé
-        when(mockProfile.getHints()).thenReturn(new PMap());
-        when(mockProfile.hasTurnCosts()).thenReturn(true);
-        when(mockProfile.getName()).thenReturn("car");
-        when(mockProfile.getWeighting()).thenReturn("custom");
+        when(profile.getHints()).thenReturn(new PMap());
+        when(profile.hasTurnCosts()).thenReturn(true);
+        when(profile.getName()).thenReturn("car");
+        when(profile.getWeighting()).thenReturn("custom");
 
-        // CustomModel / TurnCostsConfig : objets réels mais simples
-        when(mockProfile.getCustomModel()).thenReturn(new com.graphhopper.util.CustomModel());
-        when(mockProfile.getTurnCostsConfig()).thenReturn(new com.graphhopper.util.TurnCostsConfig());
+        when(profile.getCustomModel()).thenReturn(new com.graphhopper.util.CustomModel());
+        when(profile.getTurnCostsConfig()).thenReturn(new com.graphhopper.util.TurnCostsConfig());
 
-        // EncodingManager simulé : pas de TurnRestriction EV -> retourne null
-        when(mockEncoding.getTurnBooleanEncodedValue(anyString())).thenReturn(null);
+        when(encoding.getTurnBooleanEncodedValue(anyString())).thenReturn(null);
 
-        PMap requestHints = new PMap();
-
-        DefaultWeightingFactory factory = new DefaultWeightingFactory(mockGraph, mockEncoding);
+        DefaultWeightingFactory factory = new DefaultWeightingFactory(graph, encoding);
 
         IllegalArgumentException ex = assertThrows(
                 IllegalArgumentException.class,
-                () -> factory.createWeighting(mockProfile, requestHints, false)
+                () -> factory.createWeighting(profile, new PMap(), false)
         );
 
         assertTrue(ex.getMessage().contains("Cannot find turn restriction encoded value for car"));

@@ -98,33 +98,23 @@ public class DefaultBidirPathExtractorTest {
         }
     }
 
+    // Voici les 2 nouveaux cas de tests basés sur des mocks qu'on a ajouté
     /**
-     * Test mock : vérifie que onEdge(...) utilise bien Graph et Weighting
-     * pour construire le Path (distance + temps + edges).
-     *
-     * Mocks :
-     *  - Graph
-     *  - Weighting
-     *  - EdgeIteratorState
+     * Vérifie que "onEdge" utilise bien Graph et Weighting
+     * pour construire un Path avec une distance, temps et arêtes.
      */
     @Test
     public void testOnEdgeWithMocks() {
         Graph mockGraph = mock(Graph.class);
         Weighting mockWeighting = mock(Weighting.class);
         EdgeIteratorState mockEdge = mock(EdgeIteratorState.class);
-
-        // Quand on cherche l'arête (edge=42, adjNode=7), on récupère notre mock
+        // Valeurs simulées
         when(mockGraph.getEdgeIteratorState(42, 7)).thenReturn(mockEdge);
-        // Distance simulée
         when(mockEdge.getDistance()).thenReturn(15.0);
-        // Temps simulé (via GHUtility.calcMillisWithTurnMillis -> calcEdgeMillis + calcTurnMillis)
         when(mockWeighting.calcEdgeMillis(mockEdge, false)).thenReturn(300L);
         when(mockWeighting.calcTurnMillis(anyInt(), anyInt(), anyInt())).thenReturn(0L);
 
         TestExtractor extractor = new TestExtractor(mockGraph, mockWeighting);
-
-        // On appelle la méthode protégée via notre wrapper
-        // NO_EDGE = -1 ici, on n'a pas besoin d'EdgeIterator
         extractor.callOnEdge(42, 7, false, -1);
 
         Path path = extractor.path;
@@ -135,37 +125,29 @@ public class DefaultBidirPathExtractorTest {
         assertEquals(1, path.getEdges().size());
         assertEquals(42, path.getEdges().get(0));
 
-        // Vérifie les interactions Mockito
+        // Vérifie les appels aux mocks
         verify(mockGraph).getEdgeIteratorState(42, 7);
         verify(mockEdge).getDistance();
         verify(mockWeighting).calcEdgeMillis(mockEdge, false);
     }
 
     /**
-     * Test mock : vérifie que onMeetingPoint(...) ajoute bien
-     * le temps de virage fourni par Weighting.calcTurnMillis.
-     *
-     * Mocks :
-     *  - Graph (inutile ici mais simulé)
-     *  - Weighting
+     * Vérifie que "onMeetingPoint" ajoute le temps de virage
+     * fourni par Weighting.calcTurnMillis.
      */
     @Test
     public void testOnMeetingPointWithMocks() {
         Graph mockGraph = mock(Graph.class);
         Weighting mockWeighting = mock(Weighting.class);
-
+        // Valeur simulée pour le temps de virage
         when(mockWeighting.calcTurnMillis(5, 10, 7)).thenReturn(400L);
 
         TestExtractor extractor = new TestExtractor(mockGraph, mockWeighting);
-
-        // inEdge=5, viaNode=10, outEdge=7 -> tous valides => onMeetingPoint doit appeler calcTurnMillis
         extractor.callOnMeetingPoint(5, 10, 7);
 
         Path path = extractor.path;
-
+        // Vérifie que le temps du Path correspond au temps simulé
         assertEquals(400L, path.getTime());
         verify(mockWeighting).calcTurnMillis(5, 10, 7);
     }
 }
-
-
